@@ -1,0 +1,277 @@
+/* toogle switch */
+
+input[type=checkbox].toogle {
+        height: 0;
+        width: 0;
+	margin: 0px;
+        visibility: hidden;
+}
+
+label.toogle {
+        cursor: pointer;
+        text-indent: -9999px;
+        width: 32px;
+        height: 12px;
+        background: grey;
+        display: inline-block;
+        border-radius: 100px;
+        position: relative;
+	transition: 0.5s;
+}
+
+label.toogle:after {
+        content: '';
+        position: absolute;
+        top: 0px;
+        left: -4px;
+        width: 20px;
+        height: 20px;
+	margin-top: -4px;
+        background: #fff;
+        border-radius: 90px;
+        transition: 0.5s;
+	background-color: white;
+	box-shadow: 0px 1px 3px -1px black;
+}
+
+input.toogle:checked+label {
+        background-color: #bada55;
+}
+
+input.toogle:checked+label:after {
+        left: calc(100% + 4px);
+        transform: translateX(-100%);
+}
+
+label.toogle:active:after {
+        /* width: 50%; */
+}
+
+/*  */
+
+table.module_menu {
+        width: 100%;
+        border-collapse: collapse;
+}
+
+table.module_menu tr.title td {
+	font-weight: bold;
+}
+
+table.module_menu tr[id] {
+	border-top: 1px solid #d0d0d0;
+}
+
+table.module_menu tr:first-child:not(.section) {
+	border-bottom: 1px solid #d0d0d0;
+	font-weight: bold;
+}
+
+table.module_menu tr.section {
+	border-top: 1px solid #d0d0d0;
+}
+
+table.module_menu tr.section:last-child {
+		border-bottom: 1px solid transparent;
+}
+
+table.module_menu tr.section > td:first-child {
+	font-weight: bold;
+}
+
+
+/* table.module_menu tr.section > td:first-child, table.module_menu tr.section + tr:last-child */
+
+table.module_menu:not(.config_tab) tr:hover {
+	background-color: #efefef;
+}
+
+
+table.module_menu td {
+        padding: 10px;
+        vertical-align: top;
+        font-size: 10pt;
+}
+
+table.module_menu td {
+        text-align: left;
+        border-right: 1px solid transparent;
+}
+
+table.module_menu td:last-child {
+        border-right: 0px;
+}
+
+
+table.module_menu tr:last-child {
+        border-bottom: 0px;
+}
+
+table.module_menu td span {
+	cursor: pointer;
+}
+
+.swal2-title {
+        font-size: 10pt;
+	font-family: "Roboto","LocalRoboto","Helvetica Neue","Helvetica","sans-serif" !important;
+}
+
+.swal2-close.backbutton {
+        display: flex;
+        top: 0%;
+        left: -32px !important;
+        height: 32px !important;
+        width: 32px !important;
+        background: url(https://cdnjs.cloudflare.com/ajax/libs/octicons/8.3.0/svg/chevron-left.svg) no-repeat top left;
+        background-size: contain;
+}
+
+tr.non-scrollable {
+        max-height: 100%;
+}
+
+tr.non-scrollable>td {
+        padding: 0px;
+        max-height: 100%;
+}
+
+tr.non-scrollable>td>div {
+        max-height: 100%;
+}
+
+.with-max-height {
+        max-height: 100%;
+}
+
+.swal-wide {
+	min-width: fit-content
+}
+
+.with-max-height .swal2-content {
+        max-height: 100%;
+        overflow-y: auto;
+}
+
+.swal2-popup .swal2-header {
+        display: block;
+}
+
+.swal2-popup .swal2-content {
+	color: black !important;
+}
+
+
+/* hotkey input */
+
+.fancy-input {
+        border: 1px solid #787878;
+        border-radius: 2px;
+        padding: 2px;
+}
+
+.fancy-input[type="text"].hotkey {
+        background-image: url("https://cdnjs.cloudflare.com/ajax/libs/octicons/8.3.0/svg/keyboard.svg");
+        padding-left: 5px;
+        background-repeat: no-repeat;
+        background-position: 98% center;
+        background-color: inherit;
+}
+
+.fancy-input[type="text"].hotkey.disabled {
+        background-color: #c7e6ec;
+}
+
+
+
+
+/* reset button */
+
+span.reset-button {
+	transform: scale(0.9);
+	width: 16px;
+	height: 16px;
+	margin-bottom: -5px;
+	margin-left: -3px;
+	display: inline-block;
+	cursor: pointer;
+
+	background-image: url("https://cdnjs.cloudflare.com/ajax/libs/octicons/8.3.0/svg/reply.svg");
+        background-repeat: no-repeat;
+        background-position: 98% center;
+        background-color: inherit;
+}
+
+span.reset-button:hover {
+	opacity: 1;
+}
+
+span.reset-button::selection {
+	background-color: transparent;
+}
+
+span.reset-button + .fancy-input[type="text"].hotkey {
+        margin-right: 5px;
+}
+
+/*  */
+
+.swal2-modal .config-button {
+	position: absolute;
+	right: 2.4em;
+	top: 1.2em;
+	margin-top: -7px;
+	margin-right: 20px;
+	cursor: pointer;
+}
+
+.mobiletitle .config-button {
+	position: absolute;
+	top: 8px;
+	right: calc(25% - 6px);
+	display: inline-block;
+	cursor: pointer;
+}
+
+/*  */
+
+.module_menu, .module_menu * {
+	font-family: "Roboto","LocalRoboto","Helvetica Neue","Helvetica","sans-serif" !important;
+}
+
+
+/* custom noty styles */
+
+.btn-success {
+	color: #fff;
+	background-color: #3085d6;
+	border-color: #3085d6;
+}
+
+.btn-danger {
+	color: #fff;
+	background-color: #d9534f;
+	border-color: #d43f3a;
+}
+
+.btn {
+	display: inline-block;
+	padding: 6px 12px;
+	margin-bottom: 0;
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 1.42857143;
+	text-align: center;
+	white-space: nowrap;
+	vertical-align: middle;
+	-ms-touch-action: manipulation;
+	touch-action: manipulation;
+	cursor: pointer;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	background-image: none;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	margin: .3125em
+}

@@ -1,0 +1,9 @@
+[
+	"rgh:Pytness/fc-modules/master/modules/src/filterThreads.js",
+	"rgh:Pytness/fc-modules/master/modules/src/iupp.js",
+	"rgh:Pytness/fc-modules/master/modules/src/drivesync.js",
+	"rgh:Pytness/fc-modules/master/modules/src/imagePreview.js",
+	"rgh:Pytness/fc-modules/master/modules/src/autoIcons.js",
+	"rgh:Pytness/fc-modules/master/modules/src/threadHighlighter.js",
+	"rgh:Pytness/fc-modules/master/modules/src/notifier.js"
+]
