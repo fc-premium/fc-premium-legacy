@@ -4,6 +4,5 @@
 	"rgh:Pytness/fc-modules/master/modules/src/drivesync.js",
 	"rgh:Pytness/fc-modules/master/modules/src/imagePreview.js",
 	"rgh:Pytness/fc-modules/master/modules/src/autoIcons.js",
-	"rgh:Pytness/fc-modules/master/modules/src/threadHighlighter.js",
-	"rgh:Pytness/fc-modules/master/modules/src/notifier.js"
+	"rgh:Pytness/fc-modules/master/modules/src/threadHighlighter.js"
 ]
