@@ -1,5 +1,12 @@
 declare var unsafeWindow: Window;
 
+declare interface GM_Resource {
+	meta: string;
+	content: string;
+	name: string;
+	url: string;
+}
+
 declare var GM_info: {
 	version: string,
 	scriptWillUpdate: boolean,
@@ -23,7 +30,7 @@ declare var GM_info: {
 		namespace?: string,
 		position: number,
 		"run-at": string,
-		resources: string[],
+		resources: GM_Resource[],
 		unwrap: boolean,
 		version: string,
 		options: {
