@@ -13,10 +13,10 @@
 // @require        https://cdnjs.cloudflare.com/ajax/libs/mousetrap/1.6.2/mousetrap.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.js
 
-// @resource       styles https://raw.githubusercontent.com/Pytness/fc-modules/master/resources/styles.css
-// @resource       noty_css https://cdnjs.cloudflare.com/ajax/libs/noty/3.1.4/noty.min.css
-// @resource       xterm_css https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.css
-// @resource       material_icons https://fonts.googleapis.com/icon?family=Material+Icons
+// @resource       styles.css https://raw.githubusercontent.com/Pytness/fc-modules/master/resources/styles.css
+// @resource       noty.css https://cdnjs.cloudflare.com/ajax/libs/noty/3.1.4/noty.min.css
+// @resource       xterm.css https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.css
+// @resource       material_icons.css https://fonts.googleapis.com/icon?family=Material+Icons
 
 // @updateURL      https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js
 // @downloadURL    https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js
