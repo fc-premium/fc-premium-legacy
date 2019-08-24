@@ -1,5 +1,6 @@
 import { Urls } from './urls'
 import { Utils } from './utils'
+import { FC } from './index'
 import { Dynamic } from './dynamic'
 
 export type UserID = number;
@@ -197,7 +198,7 @@ export class CurrentUser extends User {
 		const self = this;
 
 		(async function() {
-			self.id = await Utils.getCurrentUserId();
+			self.id = await FC.getCurrentUserId();
 
 			await self.update();
 		})();

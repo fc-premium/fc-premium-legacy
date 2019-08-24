@@ -14,4 +14,8 @@ export class Urls {
 	static readonly onlineusers = 'https://www.forocoches.com/foro/online.php'; // Low size file, has a token
 };
 
-/*1565003385-ee88c358001996150a4b4ae9d2661ac7294bcdf4*/
+/*
+	Token example: 1565003385-ee88c358001996150a4b4ae9d2661ac7294bcdf4
+
+	timestamp-hmac
+ */
