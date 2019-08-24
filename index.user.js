@@ -13,10 +13,10 @@
 // @require        https://cdnjs.cloudflare.com/ajax/libs/mousetrap/1.6.2/mousetrap.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.js
 
-// @resource       styles https://raw.githubusercontent.com/Pytness/fc-modules/master/resources/styles.css
-// @resource       noty_css https://cdnjs.cloudflare.com/ajax/libs/noty/3.1.4/noty.min.css
-// @resource       xterm_css https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.css
-// @resource       material_icons https://fonts.googleapis.com/icon?family=Material+Icons
+// @resource       styles.css https://raw.githubusercontent.com/Pytness/fc-modules/master/resources/styles.css
+// @resource       noty.css https://cdnjs.cloudflare.com/ajax/libs/noty/3.1.4/noty.min.css
+// @resource       xterm.css https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.css
+// @resource       material_icons.css https://fonts.googleapis.com/icon?family=Material+Icons
 
 // @updateURL      https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js
 // @downloadURL    https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js
@@ -884,7 +884,553 @@ class module_Module {
 
 
 /***/ }),
-/* 3 */,
+/* 3 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+
+// CONCATENATED MODULE: ./out/fc-module-handler/fc_api/urls.js
+class Urls {
+}
+Urls.thread = 'https://www.forocoches.com/foro/showthread.php?t=';
+Urls.whoposted = 'https://www.forocoches.com/foro/misc.php?do=whoposted&t=';
+Urls.post = 'https://www.forocoches.com/foro/showthread.php?p=';
+Urls.deletePost = 'https://www.forocoches.com/foro/editpost.php';
+Urls.user = 'https://www.forocoches.com/foro/member.php?u=';
+Urls.quote = 'https://www.forocoches.com/foro/newreply.php?do=newreply&p=';
+Urls.newPost = 'https://www.forocoches.com/foro/newreply.php?do=postreply&t=';
+Urls.private = 'https://www.forocoches.com/foro/private.php';
+Urls.ignoreList = 'https://www.forocoches.com/foro/profile.php?do=ignorelist';
+Urls.profile = 'https://www.forocoches.com/foro/profile.php';
+Urls.usercp = 'https://www.forocoches.com/foro/usercp.php?';
+Urls.usersearch = 'https://www.forocoches.com/foro/ajax.php?do=usersearch';
+Urls.onlineusers = 'https://www.forocoches.com/foro/online.php';
+;
+
+// CONCATENATED MODULE: ./out/fc-module-handler/fc_api/utils.js
+class Utils {
+    static removeTildesFromString(value) {
+        return value.normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+    static utf8ToIso(arrayBuffer) {
+        let encoder = new TextDecoder("ISO-8859-1");
+        arrayBuffer = new Uint8Array(arrayBuffer);
+        return encoder.decode(arrayBuffer);
+    }
+    static parseHTML(text) {
+        return (new DOMParser()).parseFromString(text, "text/html");
+    }
+    static responseToHtml(response) {
+        return response.arrayBuffer()
+            .then(Utils.utf8ToIso)
+            .then(Utils.parseHTML);
+    }
+    static parseFCDate(str_date) {
+        const msInADay = 1000 * 60 * 60 * 24;
+        if (typeof str_date !== 'string') {
+            let invalid = new Date();
+            invalid.setTime(NaN);
+            return invalid;
+        }
+        str_date = str_date.split(',')
+            .map(s => s.trim());
+        const monthsTranslations = {
+            'ene': 'jan',
+            'feb': 'feb',
+            'mar': 'mar',
+            'abr': 'apr',
+            'may': 'may',
+            'jun': 'jun',
+            'jul': 'jul',
+            'ago': 'aug',
+            'sep': 'sep',
+            'oct': 'oct',
+            'nov': 'nov',
+            'dic': 'dec'
+        };
+        let tarr;
+        let date = new Date();
+        date.setTime(Math.floor(Date.now() / msInADay) * msInADay +
+            (date.getTimezoneOffset() * 1000 * 60));
+        if ((str_date[0] === 'Ayer')) {
+            date.setTime(date.getTime() - msInADay);
+        }
+        else if (str_date[0] !== 'Hoy') {
+            tarr = str_date[0].split('-');
+            tarr[1] = monthsTranslations[tarr[1]];
+            date = new Date(Date.parse(tarr.join('-')));
+        }
+        if (str_date.length > 1) {
+            let hour = Date.parse(`1-1-1970 ${str_date[1]} GMT`);
+            date.setTime(date.getTime() + hour - (new Date().getTimezoneOffset()));
+        }
+        return date;
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/fc_api/dynamic.js
+class Dynamic {
+    constructor() {
+        this.__loading = false;
+    }
+    waitUntilLoadingIsComplete() {
+        return new Promise(resolve => setInterval(() => {
+            if (this.__loading === false)
+                resolve();
+        }));
+    }
+    async get() {
+        await this.waitUntilLoadingIsComplete();
+        return this;
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/fc_api/user.js
+
+
+
+
+class UserAbouts {
+    constructor() {
+        this.car = null;
+        this.place = null;
+        this.interests = null;
+        this.occupation = null;
+        this.signature = null;
+    }
+}
+class UserStats {
+    constructor() {
+        this.messageCount = null;
+        this.signupDate = null;
+        this.lastActivity = null;
+    }
+    get messagesPerDay() {
+        if (this.messageCount === null || this.signupDate === null)
+            return null;
+        const msSinceSignUp = Date.now() - this.signupDate.getTime();
+        return this.messageCount / (msSinceSignUp / 1000 / 60 / 60 / 24);
+    }
+}
+class user_User extends Dynamic {
+    constructor(id, update = true) {
+        super();
+        this.exists = true;
+        this.nickname = null;
+        this.avatar = null;
+        this.isConnected = null;
+        this.title = null;
+        this.stats = new UserStats();
+        this.about = new UserAbouts();
+        this.error = null;
+        this.id = id;
+        if (update)
+            this.update();
+    }
+    async update() {
+        if (this.__loading === true || this.exists === false)
+            return this;
+        this.__loading = true;
+        return fetch(`${Urls.user}${this.id}&simple=1`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            const errorMessage = html.querySelector('.panelsurround');
+            if (errorMessage !== null) {
+                this.error = errorMessage.innerText.trim();
+                this.exists = false;
+            }
+            else {
+                this.nickname = html.querySelector('#username_box > h1').innerText.trim();
+                this.avatar = html.querySelector('img.avatar');
+                this.isConnected = html.querySelector('#username_box img')
+                    .getAttribute('src').search('online') >= 0;
+                this.title = html.querySelector('#username_box > h2').innerText.trim();
+                let tempData = Array.from(html.querySelectorAll('.statistics_group .shade'))
+                    .map((span) => {
+                    const li = span.parentNode;
+                    let x = li.innerText.split(':');
+                    return [
+                        Utils.removeTildesFromString(x[0]).trim(),
+                        x.slice(1).join(':')
+                    ];
+                });
+                tempData = Object.fromEntries(tempData);
+                this.stats.messageCount = parseInt(tempData['Mensajes Total'].replace('.', ''));
+                const lastActivity = Utils.parseFCDate(tempData['Ultima Actividad']);
+                this.stats.lastActivity = isNaN(lastActivity.getTime()) ?
+                    null : lastActivity;
+                const signupDate = Utils.parseFCDate(tempData['Fecha de Registro']);
+                this.stats.signupDate = isNaN(signupDate.getTime()) ?
+                    null : signupDate;
+                tempData = Array.from(html.querySelectorAll('.list_no_decoration .profilefield_list > *'))
+                    .map((element, index) => {
+                    let value;
+                    if (index % 2 === 0) {
+                        value = Utils.removeTildesFromString(element.innerText);
+                    }
+                    else {
+                        value = element.childNodes[0].nodeValue;
+                    }
+                    return value.trim();
+                }).map((value, index, self) => {
+                    return index % 2 === 0 ?
+                        [value, self[index + 1]] : undefined;
+                }).filter(x => x !== undefined);
+                tempData = Object.fromEntries(tempData);
+                this.about.car = tempData.hasOwnProperty('Coche') ?
+                    tempData['Coche'] : null;
+                this.about.place = tempData.hasOwnProperty('Lugar') ?
+                    tempData['Lugar'] : null;
+                this.about.interests = tempData.hasOwnProperty('Intereses') ?
+                    tempData['Intereses'] : null;
+                this.about.occupation = tempData.hasOwnProperty('Ocupacion') ?
+                    tempData['Ocupacion'] : null;
+                this.about.signature = html.querySelector('#signature')
+                    .innerHTML.trim();
+            }
+            this.__loading = false;
+            return this;
+        }).catch(() => {
+            this.__loading = false;
+            return this;
+        });
+    }
+}
+class BasicUser {
+    constructor(id = null, nickname = null) {
+        this.id = null;
+        this.nickname = null;
+        this.id = id;
+        this.nickname = nickname.trim();
+    }
+    getUser(update = true) {
+        return new user_User(this.id, update);
+    }
+    static fromHTML(html) {
+        let id, nickname;
+        if (html.hasAttribute('userid')) {
+            id = parseInt(html.getAttribute('userid'));
+        }
+        else if (html.hasAttribute('href')) {
+            id = parseInt(html.getAttribute('href').split('=')[1]);
+        }
+        else {
+            throw new Error('HTML tag is not valid');
+        }
+        nickname = html.innerText;
+        return new BasicUser(id, nickname);
+    }
+}
+class user_CurrentUser extends user_User {
+    constructor() {
+        super(null, false);
+        const self = this;
+        (async function () {
+            self.id = await fc_api_FC.getCurrentUserId();
+            await self.update();
+        })();
+    }
+    async getIgnoredUsersList() {
+        return fetch(Urls.ignoreList)
+            .then(Utils.responseToHtml)
+            .then((html) => {
+            const ignoredUserTagList = html.querySelectorAll('.userlist [href*="member.php?u="]');
+            return Array.from(ignoredUserTagList).map(tag => BasicUser.fromHTML(tag));
+        });
+    }
+    async ignoreUsers(userIds) {
+        if (typeof userIds === 'number')
+            userIds = [userIds];
+        const currentIgnoredUsers = await this.getIgnoredUsersList();
+        const updateForm = new FormData();
+        updateForm.set('s', '');
+        updateForm.set('securitytoken', await Utils.getSecurityToken());
+        currentIgnoredUsers.forEach((user => {
+            const id = user.id;
+            updateForm.set(`listbits[ignore][${id}]`, id.toString());
+            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
+        }));
+        userIds.forEach((id) => {
+            updateForm.set(`listbits[ignore][${id}]`, id.toString());
+            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
+        });
+        return fetch(`${Urls.profile}?do=updatelist&userlist=ignore`, {
+            method: 'POST',
+            body: updateForm
+        });
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/fc_api/post.js
+
+
+class post_Post extends Dynamic {
+    constructor(number, update = true) {
+        super();
+        this.id = null;
+        this.threadId = null;
+        this.ownerId = null;
+        this.number = null;
+        this.content = null;
+        this.creationDate = null;
+        this.editDate = null;
+        this.number = number;
+        if (update)
+            this.update();
+    }
+    async update() {
+        return this;
+    }
+    updateFromHTML(html) {
+        if (html.tagName !== 'TABLE' || !html.id.startsWith('post'))
+            throw 'No a valid post';
+        this.id = parseInt(html.id.slice(4));
+        this.threadId = parseInt((/t\=([\d]+)/).exec(html.querySelector('[href^="showthread.php?t="]').href)[1]);
+        this.ownerId = parseInt(html.querySelector('.bigusername').href.split('=')[1]);
+        this.number = parseInt(html.querySelector('[id^="postcount"]').name);
+        this.content = html.querySelector('[name="HOTWordsTxt"] > div').outerHTML;
+        this.creationDate = Utils.parseFCDate(html.querySelector('td.thead').innerText);
+        this.editDate = (function () {
+            const editPhrase = html.querySelector('td[class^="alt1"][valign="bottom"] em');
+            if (editPhrase === null)
+                return null;
+            let fcDateString = editPhrase.innerText.split('fecha: ')[1]
+                .replace(' a las', ',').slice(0, -1);
+            return Utils.parseFCDate(fcDateString);
+        })();
+        return this;
+    }
+    static fromHTML(html) {
+        return new post_Post(null, false).updateFromHTML(html);
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/fc_api/thread.js
+
+
+
+
+
+class thread_Thread extends Dynamic {
+    constructor(id, update = true) {
+        super();
+        this.authorId = null;
+        this.zoneId = null;
+        this.title = null;
+        this.creationDate = null;
+        this.postCount = null;
+        this.exists = true;
+        this.error = null;
+        this.id = id;
+        if (update)
+            this.update();
+    }
+    get pageCount() {
+        return Math.ceil(this.postCount / thread_Thread.DEFAULT_POSTS_PER_PAGE);
+    }
+    updateFromHTML(html) {
+        const errorPanel = html.querySelector('.panelsurround');
+        const errorOccurred = errorPanel !== null &&
+            errorPanel.querySelector('textarea') === null &&
+            document.querySelector('.panelsurround').querySelector('fieldset') === null;
+        if (errorOccurred === true) {
+            this.error = errorPanel.innerText.trim();
+            this.exists = false;
+        }
+        else {
+            if (this.authorId === null) {
+                this.authorId = parseInt(html.querySelector('.bigusername').getAttribute('href').split('=')[1]);
+                this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar > [href*="forumdisplay.php?f="]')
+                    .getAttribute('href').split('=')[1]);
+                this.creationDate = Utils.parseFCDate(html.querySelector('[id*="post"] td.thead').innerText);
+            }
+            this.title = html.querySelector('.cmega').innerText;
+            let navNext = html.querySelector('.pagenav .mfont');
+            if (navNext !== null) {
+                this.postCount = parseInt(navNext.title.split(' ').slice(-1)[0].replace('.', ''));
+            }
+            else {
+                this.postCount = html.querySelectorAll('[id*="postcount"]').length;
+            }
+        }
+    }
+    async update() {
+        if (this.__loading === true || this.exists === false)
+            return this;
+        this.__loading = true;
+        return fetch(`${Urls.thread}${this.id}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            this.updateFromHTML(html);
+            this.__loading = false;
+            return this;
+        }).catch(() => {
+            this.__loading = false;
+            return this;
+        });
+    }
+    async getWhoPosted() {
+        return fetch(`${Urls.whoposted}${this.id}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            const postCountByUser = new Map();
+            const rows = Array.from(html.querySelectorAll('.tborder > tbody > tr')).slice(2, -1);
+            rows.forEach(row => {
+                const cols = row.querySelectorAll('td > a');
+                const userId = parseInt(cols[0].href.split('=')[1]);
+                const nickname = cols[0].innerText.trim();
+                const postsCount = parseInt(cols[1].innerText);
+                postCountByUser.set(new BasicUser(userId, nickname), postsCount);
+            });
+            return postCountByUser;
+        });
+    }
+    async getPost(number) {
+        return fetch(`${Urls.thread}${this.id}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            const postHTML = html.querySelector(`[name="${number}"]`)
+                .parentNode.parentNode.parentNode.parentNode;
+            return post_Post.fromHTML(postHTML);
+        });
+    }
+    async getMultiplePosts(numbers) {
+        numbers.sort((a, b) => a - b);
+        const numbersByPage = (function () {
+            const pages = new Map;
+            numbers.forEach(n => {
+                const page = Math.ceil(n / thread_Thread.MAX_POSTS_PER_PAGE);
+                if (!pages.has(page))
+                    pages.set(page, []);
+                pages.get(page).push(n);
+            });
+            return pages;
+        })();
+        const pageNumbers = Array.from(numbersByPage.keys());
+        const pagesRequests = Array.from(numbersByPage.keys()).map(pageNumber => {
+            return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${thread_Thread.MAX_POSTS_PER_PAGE}`)
+                .then(Utils.responseToHtml);
+        });
+        const posts = new Map();
+        (await Promise.all(pagesRequests)).map((html, i) => {
+            const numbersInCurrentPage = numbersByPage.get(pageNumbers[i]);
+            numbersInCurrentPage.forEach(number => {
+                const postHTML = html.querySelector(`[name="${number}"]`)
+                    .parentNode.parentNode.parentNode.parentNode;
+                posts.set(number, post_Post.fromHTML(postHTML));
+            });
+        });
+        return posts;
+    }
+    async getPostsInPage(pageNumber = 1, postsPerPage = thread_Thread.DEFAULT_POSTS_PER_PAGE, update = true) {
+        if (postsPerPage < 0)
+            throw 'postsPerPage can not be negative';
+        if (postsPerPage > thread_Thread.MAX_POSTS_PER_PAGE)
+            postsPerPage = thread_Thread.MAX_POSTS_PER_PAGE;
+        return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${postsPerPage}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            if (update === true)
+                this.updateFromHTML(html);
+            const posts = Array.from(html.querySelectorAll('table[id^="post"]'));
+            return posts.map((html) => {
+                return post_Post.fromHTML(html);
+            });
+        });
+    }
+    async getPostInRange(start = null, end = null, update = true) {
+        if (start === null || end === null)
+            throw 'Must introduce start - end range';
+        if (start >= end)
+            throw 'Start position must be less than end postition';
+        const startPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
+        const endPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
+        const range = endPage - startPage;
+        const postsInPages = new Array(range).fill(undefined).map(({}, index) => {
+            const pageNumber = index + startPage;
+            return this.getPostsInPage(pageNumber, thread_Thread.MAX_POSTS_PER_PAGE, update);
+        });
+        const posts = (await Promise.all(postsInPages)).flat();
+        return posts.slice(0, range);
+    }
+}
+thread_Thread.DEFAULT_POSTS_PER_PAGE = 30;
+thread_Thread.MAX_POSTS_PER_PAGE = 60;
+
+// CONCATENATED MODULE: ./out/fc-module-handler/fc_api/index.js
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return fc_api_FC; });
+
+
+
+
+
+class fc_api_FC {
+    static async getUserData(id) {
+        return new user_User(id).get();
+    }
+    static async getThreadData(id) {
+        return new thread_Thread(id).get();
+    }
+    static async getCurrentUserId(force_update = false) {
+        const hasLoggedIn = new Set(document.cookie.split(';').map(x => x.split('=')[0]))
+            .has('bbsessionhash');
+        if (!hasLoggedIn)
+            return -1;
+        if (fc_api_FC.__userid__ !== null && force_update !== true)
+            return fc_api_FC.__userid__;
+        return fetch(Urls.usercp)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            const anchor = html.querySelector('a[href^="member.php?u"]');
+            if (anchor !== null) {
+                let uid = anchor.getAttribute('href');
+                if (uid !== undefined)
+                    uid = uid.split('=')[1];
+                fc_api_FC.__userid__ = parseInt(uid);
+            }
+            return fc_api_FC.__userid__;
+        });
+    }
+    static getCurrentUser() {
+        return new user_CurrentUser().get();
+    }
+    static async getSecurityToken() {
+        const TOKEN = window.SECURITYTOKEN;
+        if (typeof TOKEN === 'string') {
+            return TOKEN;
+        }
+        else {
+            return fetch(Urls.onlineusers)
+                .then(Utils.responseToHtml)
+                .then(html => {
+                return html.querySelector('[name="securitytoken"]').value;
+            });
+        }
+    }
+    static async searchForPartialNickname(nicknameFragment) {
+        const form = new FormData();
+        form.set('do', 'usersearch');
+        form.set('fragment', nicknameFragment);
+        form.set('securitytoken', await fc_api_FC.getSecurityToken());
+        return fetch(Urls.usersearch, {
+            method: 'POST',
+            body: form
+        }).then(Utils.responseToHtml)
+            .then(xml => {
+            const userTags = Array.from(xml.querySelectorAll('user'));
+            return userTags.map((userTag) => {
+                return BasicUser.fromHTML(userTag);
+            });
+        });
+    }
+}
+fc_api_FC.__userid__ = null;
+fc_api_FC.Urls = Urls;
+fc_api_FC.Utils = Utils;
+
+
+/***/ }),
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -2131,552 +2677,7 @@ exports.sha512 = __webpack_require__(15)
 
 
 /***/ }),
-/* 17 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-
-// CONCATENATED MODULE: ./out/fc_api/urls.js
-class Urls {
-}
-Urls.thread = 'https://www.forocoches.com/foro/showthread.php?t=';
-Urls.whoposted = 'https://www.forocoches.com/foro/misc.php?do=whoposted&t=';
-Urls.post = 'https://www.forocoches.com/foro/showthread.php?p=';
-Urls.deletePost = 'https://www.forocoches.com/foro/editpost.php';
-Urls.user = 'https://www.forocoches.com/foro/member.php?u=';
-Urls.quote = 'https://www.forocoches.com/foro/newreply.php?do=newreply&p=';
-Urls.newPost = 'https://www.forocoches.com/foro/newreply.php?do=postreply&t=';
-Urls.private = 'https://www.forocoches.com/foro/private.php';
-Urls.ignoreList = 'https://www.forocoches.com/foro/profile.php?do=ignorelist';
-Urls.profile = 'https://www.forocoches.com/foro/profile.php';
-Urls.usercp = 'https://www.forocoches.com/foro/usercp.php?';
-Urls.usersearch = 'https://www.forocoches.com/foro/ajax.php?do=usersearch';
-Urls.onlineusers = 'https://www.forocoches.com/foro/online.php';
-;
-
-// CONCATENATED MODULE: ./out/fc_api/dynamic.js
-class Dynamic {
-    constructor() {
-        this.__loading = false;
-    }
-    waitUntilLoadingIsComplete() {
-        return new Promise(resolve => setInterval(() => {
-            if (this.__loading === false)
-                resolve();
-        }));
-    }
-    async get() {
-        await this.waitUntilLoadingIsComplete();
-        return this;
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/user.js
-
-
-
-class UserAbouts {
-    constructor() {
-        this.car = null;
-        this.place = null;
-        this.interests = null;
-        this.occupation = null;
-        this.signature = null;
-    }
-}
-class UserStats {
-    constructor() {
-        this.messageCount = null;
-        this.signupDate = null;
-        this.lastActivity = null;
-    }
-    get messagesPerDay() {
-        if (this.messageCount === null || this.signupDate === null)
-            return null;
-        const msSinceSignUp = Date.now() - this.signupDate.getTime();
-        return this.messageCount / (msSinceSignUp / 1000 / 60 / 60 / 24);
-    }
-}
-class user_User extends Dynamic {
-    constructor(id, update = true) {
-        super();
-        this.exists = true;
-        this.nickname = null;
-        this.avatar = null;
-        this.isConnected = null;
-        this.title = null;
-        this.stats = new UserStats();
-        this.about = new UserAbouts();
-        this.error = null;
-        this.id = id;
-        if (update)
-            this.update();
-    }
-    async update() {
-        if (this.__loading === true || this.exists === false)
-            return this;
-        this.__loading = true;
-        return fetch(`${Urls.user}${this.id}&simple=1`)
-            .then(utils_Utils.responseToHtml)
-            .then(html => {
-            const errorMessage = html.querySelector('.panelsurround');
-            if (errorMessage !== null) {
-                this.error = errorMessage.innerText.trim();
-                this.exists = false;
-            }
-            else {
-                this.nickname = html.querySelector('#username_box > h1').innerText.trim();
-                this.avatar = html.querySelector('img.avatar');
-                this.isConnected = html.querySelector('#username_box img')
-                    .getAttribute('src').search('online') >= 0;
-                this.title = html.querySelector('#username_box > h2').innerText.trim();
-                let tempData = Array.from(html.querySelectorAll('.statistics_group .shade'))
-                    .map((span) => {
-                    const li = span.parentNode;
-                    let x = li.innerText.split(':');
-                    return [
-                        utils_Utils.removeTildesFromString(x[0]).trim(),
-                        x.slice(1).join(':')
-                    ];
-                });
-                tempData = Object.fromEntries(tempData);
-                this.stats.messageCount = parseInt(tempData['Mensajes Total'].replace('.', ''));
-                const lastActivity = utils_Utils.parseFCDate(tempData['Ultima Actividad']);
-                this.stats.lastActivity = isNaN(lastActivity.getTime()) ?
-                    null : lastActivity;
-                const signupDate = utils_Utils.parseFCDate(tempData['Fecha de Registro']);
-                this.stats.signupDate = isNaN(signupDate.getTime()) ?
-                    null : signupDate;
-                tempData = Array.from(html.querySelectorAll('.list_no_decoration .profilefield_list > *'))
-                    .map((element, index) => {
-                    let value;
-                    if (index % 2 === 0) {
-                        value = utils_Utils.removeTildesFromString(element.innerText);
-                    }
-                    else {
-                        value = element.childNodes[0].nodeValue;
-                    }
-                    return value.trim();
-                }).map((value, index, self) => {
-                    return index % 2 === 0 ?
-                        [value, self[index + 1]] : undefined;
-                }).filter(x => x !== undefined);
-                tempData = Object.fromEntries(tempData);
-                this.about.car = tempData.hasOwnProperty('Coche') ?
-                    tempData['Coche'] : null;
-                this.about.place = tempData.hasOwnProperty('Lugar') ?
-                    tempData['Lugar'] : null;
-                this.about.interests = tempData.hasOwnProperty('Intereses') ?
-                    tempData['Intereses'] : null;
-                this.about.occupation = tempData.hasOwnProperty('Ocupacion') ?
-                    tempData['Ocupacion'] : null;
-                this.about.signature = html.querySelector('#signature')
-                    .innerHTML.trim();
-            }
-            this.__loading = false;
-            return this;
-        }).catch(() => {
-            this.__loading = false;
-            return this;
-        });
-    }
-}
-class BasicUser {
-    constructor(id = null, nickname = null) {
-        this.id = null;
-        this.nickname = null;
-        this.id = id;
-        this.nickname = nickname.trim();
-    }
-    getUser(update = true) {
-        return new user_User(this.id, update);
-    }
-    static fromHTML(html) {
-        let id, nickname;
-        if (html.hasAttribute('userid')) {
-            id = parseInt(html.getAttribute('userid'));
-        }
-        else if (html.hasAttribute('href')) {
-            id = parseInt(html.getAttribute('href').split('=')[1]);
-        }
-        else {
-            throw new Error('HTML tag is not valid');
-        }
-        nickname = html.innerText;
-        return new BasicUser(id, nickname);
-    }
-}
-class user_CurrentUser extends user_User {
-    constructor() {
-        super(null, false);
-        const self = this;
-        (async function () {
-            self.id = await utils_Utils.getCurrentUserId();
-            await self.update();
-        })();
-    }
-    async getIgnoredUsersList() {
-        return fetch(Urls.ignoreList)
-            .then(utils_Utils.responseToHtml)
-            .then((html) => {
-            const ignoredUserTagList = html.querySelectorAll('.userlist [href*="member.php?u="]');
-            return Array.from(ignoredUserTagList).map(tag => BasicUser.fromHTML(tag));
-        });
-    }
-    async ignoreUsers(userIds) {
-        if (typeof userIds === 'number')
-            userIds = [userIds];
-        const currentIgnoredUsers = await this.getIgnoredUsersList();
-        const updateForm = new FormData();
-        updateForm.set('s', '');
-        updateForm.set('securitytoken', await utils_Utils.getSecurityToken());
-        currentIgnoredUsers.forEach((user => {
-            const id = user.id;
-            updateForm.set(`listbits[ignore][${id}]`, id.toString());
-            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
-        }));
-        userIds.forEach((id) => {
-            updateForm.set(`listbits[ignore][${id}]`, id.toString());
-            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
-        });
-        return fetch(`${Urls.profile}?do=updatelist&userlist=ignore`, {
-            method: 'POST',
-            body: updateForm
-        });
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/utils.js
-
-
-class utils_Utils {
-    static removeTildesFromString(value) {
-        return value.normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, "");
-    }
-    static utf8ToIso(arrayBuffer) {
-        let encoder = new TextDecoder("ISO-8859-1");
-        arrayBuffer = new Uint8Array(arrayBuffer);
-        return encoder.decode(arrayBuffer);
-    }
-    static parseHTML(text) {
-        return (new DOMParser()).parseFromString(text, "text/html");
-    }
-    static responseToHtml(response) {
-        return response.arrayBuffer()
-            .then(utils_Utils.utf8ToIso)
-            .then(utils_Utils.parseHTML);
-    }
-    static parseFCDate(str_date) {
-        const msInADay = 1000 * 60 * 60 * 24;
-        if (typeof str_date !== 'string') {
-            let invalid = new Date();
-            invalid.setTime(NaN);
-            return invalid;
-        }
-        str_date = str_date.split(',')
-            .map(s => s.trim());
-        const monthsTranslations = {
-            'ene': 'jan',
-            'feb': 'feb',
-            'mar': 'mar',
-            'abr': 'apr',
-            'may': 'may',
-            'jun': 'jun',
-            'jul': 'jul',
-            'ago': 'aug',
-            'sep': 'sep',
-            'oct': 'oct',
-            'nov': 'nov',
-            'dic': 'dec'
-        };
-        let tarr;
-        let date = new Date();
-        date.setTime(Math.floor(Date.now() / msInADay) * msInADay +
-            (date.getTimezoneOffset() * 1000 * 60));
-        if ((str_date[0] === 'Ayer')) {
-            date.setTime(date.getTime() - msInADay);
-        }
-        else if (str_date[0] !== 'Hoy') {
-            tarr = str_date[0].split('-');
-            tarr[1] = monthsTranslations[tarr[1]];
-            date = new Date(Date.parse(tarr.join('-')));
-        }
-        if (str_date.length > 1) {
-            let hour = Date.parse(`1-1-1970 ${str_date[1]} GMT`);
-            date.setTime(date.getTime() + hour - (new Date().getTimezoneOffset()));
-        }
-        return date;
-    }
-    static async getCurrentUserId(force_update = false) {
-        const hasLoggedIn = new Set(document.cookie.split(';').map(x => x.split('=')[0])).has('bbsessionhash');
-        if (!hasLoggedIn)
-            return -1;
-        if (utils_Utils.__userid__ !== null && force_update !== true)
-            return utils_Utils.__userid__;
-        return fetch(Urls.usercp)
-            .then(utils_Utils.responseToHtml)
-            .then(html => {
-            const anchor = html.querySelector('a[href^="member.php?u"]');
-            if (anchor !== null) {
-                let uid = anchor.getAttribute('href');
-                if (uid !== undefined)
-                    uid = uid.split('=')[1];
-                utils_Utils.__userid__ = parseInt(uid);
-            }
-            return utils_Utils.__userid__;
-        });
-    }
-    static getCurrentUser() {
-        return new user_CurrentUser();
-    }
-    static async getSecurityToken() {
-        const TOKEN = window.SECURITYTOKEN;
-        if (typeof TOKEN === 'string') {
-            return TOKEN;
-        }
-        else {
-            return fetch(Urls.onlineusers)
-                .then(utils_Utils.responseToHtml)
-                .then(html => {
-                return html.querySelector('[name="securitytoken"]').value;
-            });
-        }
-    }
-    static async searchForPartialNickname(nicknameFragment) {
-        const form = new FormData();
-        form.set('do', 'usersearch');
-        form.set('fragment', nicknameFragment);
-        form.set('securitytoken', await utils_Utils.getSecurityToken());
-        return fetch(Urls.usersearch, {
-            method: 'POST',
-            body: form
-        }).then(utils_Utils.responseToHtml)
-            .then(xml => {
-            const userTags = Array.from(xml.querySelectorAll('user'));
-            return userTags.map((userTag) => {
-                return BasicUser.fromHTML(userTag);
-            });
-        });
-    }
-}
-utils_Utils.__userid__ = null;
-
-// CONCATENATED MODULE: ./out/fc_api/post.js
-
-
-class post_Post extends Dynamic {
-    constructor(number, update = true) {
-        super();
-        this.id = null;
-        this.threadId = null;
-        this.ownerId = null;
-        this.number = null;
-        this.content = null;
-        this.creationDate = null;
-        this.editDate = null;
-        this.number = number;
-        if (update)
-            this.update();
-    }
-    async update() {
-        return this;
-    }
-    updateFromHTML(html) {
-        if (html.tagName !== 'TABLE' || !html.id.startsWith('post'))
-            throw 'No a valid post';
-        this.id = parseInt(html.id.slice(4));
-        this.threadId = parseInt((/t\=([\d]+)/).exec(html.querySelector('[href^="showthread.php?t="]').href)[1]);
-        this.ownerId = parseInt(html.querySelector('.bigusername').href.split('=')[1]);
-        this.number = parseInt(html.querySelector('[id^="postcount"]').name);
-        this.content = html.querySelector('[name="HOTWordsTxt"] > div').outerHTML;
-        this.creationDate = utils_Utils.parseFCDate(html.querySelector('td.thead').innerText);
-        this.editDate = (function () {
-            const editPhrase = html.querySelector('td[class^="alt1"][valign="bottom"] em');
-            if (editPhrase === null)
-                return null;
-            let fcDateString = editPhrase.innerText.split('fecha: ')[1]
-                .replace(' a las', ',').slice(0, -1);
-            return utils_Utils.parseFCDate(fcDateString);
-        })();
-        return this;
-    }
-    static fromHTML(html) {
-        return new post_Post(null, false).updateFromHTML(html);
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/thread.js
-
-
-
-
-
-class thread_Thread extends Dynamic {
-    constructor(id, update = true) {
-        super();
-        this.authorId = null;
-        this.zoneId = null;
-        this.title = null;
-        this.creationDate = null;
-        this.postCount = null;
-        this.exists = true;
-        this.error = null;
-        this.id = id;
-        if (update)
-            this.update();
-    }
-    get pageCount() {
-        return Math.ceil(this.postCount / thread_Thread.DEFAULT_POSTS_PER_PAGE);
-    }
-    updateFromHTML(html) {
-        const errorPanel = html.querySelector('.panelsurround');
-        const errorOccurred = errorPanel !== null &&
-            errorPanel.querySelector('textarea') === null &&
-            document.querySelector('.panelsurround').querySelector('fieldset') === null;
-        if (errorOccurred === true) {
-            this.error = errorPanel.innerText.trim();
-            this.exists = false;
-        }
-        else {
-            if (this.authorId === null) {
-                this.authorId = parseInt(html.querySelector('.bigusername').getAttribute('href').split('=')[1]);
-                this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar > [href*="forumdisplay.php?f="]')
-                    .getAttribute('href').split('=')[1]);
-                this.creationDate = utils_Utils.parseFCDate(html.querySelector('[id*="post"] td.thead').innerText);
-            }
-            this.title = html.querySelector('.cmega').innerText;
-            let navNext = html.querySelector('.pagenav .mfont');
-            if (navNext !== null) {
-                this.postCount = parseInt(navNext.title.split(' ').slice(-1)[0].replace('.', ''));
-            }
-            else {
-                this.postCount = html.querySelectorAll('[id*="postcount"]').length;
-            }
-        }
-    }
-    async update() {
-        if (this.__loading === true || this.exists === false)
-            return this;
-        this.__loading = true;
-        return fetch(`${Urls.thread}${this.id}`)
-            .then(utils_Utils.responseToHtml)
-            .then(html => {
-            this.updateFromHTML(html);
-            this.__loading = false;
-            return this;
-        }).catch(() => {
-            this.__loading = false;
-            return this;
-        });
-    }
-    async getWhoPosted() {
-        return fetch(`${Urls.whoposted}${this.id}`)
-            .then(utils_Utils.responseToHtml)
-            .then(html => {
-            const postCountByUser = new Map();
-            const rows = Array.from(html.querySelectorAll('.tborder > tbody > tr')).slice(2, -1);
-            rows.forEach(row => {
-                const cols = row.querySelectorAll('td > a');
-                const userId = parseInt(cols[0].href.split('=')[1]);
-                const nickname = cols[0].innerText.trim();
-                const postsCount = parseInt(cols[1].innerText);
-                postCountByUser.set(new BasicUser(userId, nickname), postsCount);
-            });
-            return postCountByUser;
-        });
-    }
-    async getPost(number) {
-        return fetch(`${Urls.thread}${this.id}`)
-            .then(utils_Utils.responseToHtml)
-            .then(html => {
-            const postHTML = html.querySelector(`[name="${number}"]`)
-                .parentNode.parentNode.parentNode.parentNode;
-            return post_Post.fromHTML(postHTML);
-        });
-    }
-    async getMultiplePosts(numbers) {
-        numbers.sort((a, b) => a - b);
-        const numbersByPage = (function () {
-            const pages = new Map;
-            numbers.forEach(n => {
-                const page = Math.ceil(n / thread_Thread.MAX_POSTS_PER_PAGE);
-                if (!pages.has(page))
-                    pages.set(page, []);
-                pages.get(page).push(n);
-            });
-            return pages;
-        })();
-        const pageNumbers = Array.from(numbersByPage.keys());
-        const pagesRequests = Array.from(numbersByPage.keys()).map(pageNumber => {
-            return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${thread_Thread.MAX_POSTS_PER_PAGE}`)
-                .then(utils_Utils.responseToHtml);
-        });
-        const posts = new Map();
-        (await Promise.all(pagesRequests)).map((html, i) => {
-            const numbersInCurrentPage = numbersByPage.get(pageNumbers[i]);
-            numbersInCurrentPage.forEach(number => {
-                const postHTML = html.querySelector(`[name="${number}"]`)
-                    .parentNode.parentNode.parentNode.parentNode;
-                posts.set(number, post_Post.fromHTML(postHTML));
-            });
-        });
-        return posts;
-    }
-    async getPostsInPage(pageNumber = 1, postsPerPage = thread_Thread.DEFAULT_POSTS_PER_PAGE, update = true) {
-        if (postsPerPage < 0)
-            throw 'postsPerPage can not be negative';
-        if (postsPerPage > thread_Thread.MAX_POSTS_PER_PAGE)
-            postsPerPage = thread_Thread.MAX_POSTS_PER_PAGE;
-        return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${postsPerPage}`)
-            .then(utils_Utils.responseToHtml)
-            .then(html => {
-            if (update === true)
-                this.updateFromHTML(html);
-            const posts = Array.from(html.querySelectorAll('table[id^="post"]'));
-            return posts.map((html) => {
-                return post_Post.fromHTML(html);
-            });
-        });
-    }
-    async getPostInRange(start = null, end = null, update = true) {
-        if (start === null || end === null)
-            throw 'Must introduce start - end range';
-        if (start >= end)
-            throw 'Start position must be less than end postition';
-        const startPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
-        const endPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
-        const range = endPage - startPage;
-        const postsInPages = new Array(range).fill(undefined).map(({}, index) => {
-            const pageNumber = index + startPage;
-            return this.getPostsInPage(pageNumber, thread_Thread.MAX_POSTS_PER_PAGE, update);
-        });
-        const posts = (await Promise.all(postsInPages)).flat();
-        return posts.slice(0, range);
-    }
-}
-thread_Thread.DEFAULT_POSTS_PER_PAGE = 30;
-thread_Thread.MAX_POSTS_PER_PAGE = 60;
-
-// CONCATENATED MODULE: ./out/fc_api/api.js
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return api_FC; });
-
-
-
-
-class api_FC extends utils_Utils {
-    static async getUserData(id) {
-        return new user_User(id).get();
-    }
-    static async getThreadData(id) {
-        return new thread_Thread(id).get();
-    }
-}
-api_FC.Urls = Urls;
-api_FC.Utils = utils_Utils;
-
-
-/***/ }),
+/* 17 */,
 /* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -5811,9 +5812,9 @@ CONTROL_PANEL_MODULE.onload = function () {
 
 
 console.log(`Version hash: ${definitions["c" /* VERSION_HASH */]}`);
-;
-GM_info.script.resources.forEach((resource) => {
-    GM_addStyle(resource.content);
+(GM_info.script.resources).forEach((resource) => {
+    if (resource.name.endsWith('.css'))
+        GM_addStyle(resource.content);
 });
 module_handler["a" /* ModuleHandler */].push(CONTROL_PANEL_MODULE);
 module_handler["a" /* ModuleHandler */].loadModules();
@@ -5826,10 +5827,10 @@ module_handler["a" /* ModuleHandler */].loadModules();
 "use strict";
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return ModuleHandler; });
 /* harmony import */ var _module__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
-/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(9);
-/* harmony import */ var _fc_api_api__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(17);
-/* harmony import */ var _resource_handler__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(10);
-/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(0);
+/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(0);
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(9);
+/* harmony import */ var _fc_api__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(3);
+/* harmony import */ var _resource_handler__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(10);
 
 
 
@@ -5874,15 +5875,15 @@ MODULE.config.getMeta('ENABLED')
 MODULE.onload = function () {
     this.config.set('DEBUG_MODULE_NAME', false);
     this.config.set('DEBUG_MODE', true);
-    if (_definitions__WEBPACK_IMPORTED_MODULE_4__[/* VERSION_HASH */ "c"] != this.config.get('LAST_VERSION_HASH')) {
-        this.config.set('LAST_VERSION_HASH', _definitions__WEBPACK_IMPORTED_MODULE_4__[/* VERSION_HASH */ "c"]);
+    if (_definitions__WEBPACK_IMPORTED_MODULE_1__[/* VERSION_HASH */ "c"] != this.config.get('LAST_VERSION_HASH')) {
+        this.config.set('LAST_VERSION_HASH', _definitions__WEBPACK_IMPORTED_MODULE_1__[/* VERSION_HASH */ "c"]);
     }
     ModuleHandler.loadUserResources().then(() => ModuleHandler.loadModules());
 };
 function contextEval(source) {
     return (function (Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
         return eval(source);
-    })(_module__WEBPACK_IMPORTED_MODULE_0__[/* Debug */ "c"], _module__WEBPACK_IMPORTED_MODULE_0__[/* LocalStorage */ "e"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "b"], _module__WEBPACK_IMPORTED_MODULE_0__[/* FlagHandler */ "d"], _module__WEBPACK_IMPORTED_MODULE_0__[/* CSSHandler */ "a"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"], _fc_api_api__WEBPACK_IMPORTED_MODULE_2__[/* FC */ "a"], _utils__WEBPACK_IMPORTED_MODULE_1__[/* Utils */ "a"], ModuleHandler, _definitions__WEBPACK_IMPORTED_MODULE_4__[/* GLOBAL_ENTRY_NAME */ "a"], _definitions__WEBPACK_IMPORTED_MODULE_4__[/* VERSION_HASH */ "c"], _definitions__WEBPACK_IMPORTED_MODULE_4__[/* NO_CACHE_HEADERS */ "b"]);
+    })(_module__WEBPACK_IMPORTED_MODULE_0__[/* Debug */ "c"], _module__WEBPACK_IMPORTED_MODULE_0__[/* LocalStorage */ "e"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "b"], _module__WEBPACK_IMPORTED_MODULE_0__[/* FlagHandler */ "d"], _module__WEBPACK_IMPORTED_MODULE_0__[/* CSSHandler */ "a"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"], _fc_api__WEBPACK_IMPORTED_MODULE_3__[/* FC */ "a"], _utils__WEBPACK_IMPORTED_MODULE_2__[/* Utils */ "a"], ModuleHandler, _definitions__WEBPACK_IMPORTED_MODULE_1__[/* GLOBAL_ENTRY_NAME */ "a"], _definitions__WEBPACK_IMPORTED_MODULE_1__[/* VERSION_HASH */ "c"], _definitions__WEBPACK_IMPORTED_MODULE_1__[/* NO_CACHE_HEADERS */ "b"]);
 }
 class ModuleHandler {
     static has(key) {
@@ -5908,22 +5909,21 @@ class ModuleHandler {
         return ModuleHandler.modules.size;
     }
     static registerModules() {
-        let regModules = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_4__[/* GLOBAL_ENTRY_NAME */ "a"]);
+        let regModules = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_1__[/* GLOBAL_ENTRY_NAME */ "a"]);
         ModuleHandler.modules.forEach((module) => {
             if (!Object.keys(regModules).includes(module.name)) {
                 regModules[module.name] = {};
             }
         });
-        GM_setValue(_definitions__WEBPACK_IMPORTED_MODULE_4__[/* GLOBAL_ENTRY_NAME */ "a"], regModules);
+        GM_setValue(_definitions__WEBPACK_IMPORTED_MODULE_1__[/* GLOBAL_ENTRY_NAME */ "a"], regModules);
     }
     static sortModules() {
         ModuleHandler.modules.forEach((module) => {
             let moduleName = module.name;
-            module.require.every(requiredModuleName => {
-                if (!ModuleHandler.modules.has(requiredModuleName)) {
+            module.require.every((requiredModuleName) => {
+                if (!ModuleHandler.modules.has(requiredModuleName))
                     throw `Module '${moduleName}' requires '${requiredModuleName}'`;
-                }
-                let requiredModule = ModuleHandler.modules.get(requiredModuleName);
+                const requiredModule = ModuleHandler.modules.get(requiredModuleName);
                 if (requiredModule.require.includes(moduleName)) {
                     throw `Modules '${moduleName}' and '${requiredModuleName}' must not require each other`;
                 }
@@ -5944,9 +5944,9 @@ class ModuleHandler {
     }
     static async loadUserResources() {
         let resources = MODULE.config.get('RESOURCES');
-        return _resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].unpackJSONlinks(resources)
-            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].sortResources)
-            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].getSourceCode)
+        return _resource_handler__WEBPACK_IMPORTED_MODULE_4__[/* ResourceHandler */ "a"].unpackJSONlinks(resources)
+            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_4__[/* ResourceHandler */ "a"].sortResources)
+            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_4__[/* ResourceHandler */ "a"].getSourceCode)
             .then(scriptSources => {
             scriptSources.filter(a => a !== false).sort(([_a, ai], [_b, bi]) => ai - bi).forEach(([source, {}]) => {
                 try {
