@@ -8,10 +8,10 @@ export class Urls {
 	static readonly newPost = 'https://www.forocoches.com/foro/newreply.php?do=postreply&t=';
 	static readonly private = 'https://www.forocoches.com/foro/private.php';
 	static readonly ignoreList = 'https://www.forocoches.com/foro/profile.php?do=ignorelist';
+	static readonly profile = 'https://www.forocoches.com/foro/profile.php';
 	static readonly usercp = 'https://www.forocoches.com/foro/usercp.php?'
 	static readonly usersearch = 'https://www.forocoches.com/foro/ajax.php?do=usersearch';
 	static readonly onlineusers = 'https://www.forocoches.com/foro/online.php'; // Low size file, has a token
 };
-
 
 /*1565003385-ee88c358001996150a4b4ae9d2661ac7294bcdf4*/

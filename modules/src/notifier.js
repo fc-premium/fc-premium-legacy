@@ -94,8 +94,9 @@
 
 			// const ID = await FC.getCurrentUserId();
 			// const ID = 7329259;
-			const users = await FC.Utils.searchForPartialNickname('chi');
-			console.log(users);
+			const currentUser = await FC.Utils.getCurrentUser().get();
+			const ignoredUsers = await currentUser.getIgnoredUsersList();
+			console.log(ignoredUsers);
 		})();
 
 	};

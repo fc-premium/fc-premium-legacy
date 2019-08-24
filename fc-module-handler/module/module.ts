@@ -1,13 +1,12 @@
-/// <reference path="../node_modules/@types/jquery/index.d.ts" />
+/// <reference path="../../node_modules/@types/jquery/index.d.ts" />
 
-import { Config } from './config.class'
-import { CSSHandler } from './csshandler.class'
-import { Debug } from './debug.class'
-import { LocalStorage } from './storage.class'
-import { FlagHandler } from './flaghandler.class'
-import { ModuleHandler } from './modulehandler.class'
-import { GLOBAL_ENTRY_NAME } from './definitions'
-
+import { Config } from './config'
+import { CSSHandler } from './css-handler'
+import { Debug } from './debug'
+import { LocalStorage } from './storage'
+import { FlagHandler } from './flaghandler'
+import { ModuleHandler } from '../module-handler'
+import { GLOBAL_ENTRY_NAME } from '../definitions'
 
 export interface ModuleParameters {
 	moduleName: string;
@@ -34,28 +33,21 @@ interface ModuleInfo {
 
 export class Module {
 
-	public readonly moduleName: string;
+	public readonly name: string;
 	public readonly info: ModuleInfo;
 
 	public readonly match: Array<RegExp | string>;
-
 	public readonly require: Array<string>;
-
-
 	public readonly preload: Array<string>;
-
 	public readonly runat: string;
-
-	public readonly hasMobileSupport: boolean;
-
 	public readonly flags: FlagHandler;
 
+	public readonly hasMobileSupport: boolean;
 
 	public readonly debug: Debug = new Debug(this);
 	public readonly storage: LocalStorage = new LocalStorage(this);
 	public readonly config: Config = new Config(this);
 	public readonly styles: CSSHandler = new CSSHandler(this);
-
 
 	public onload: Function;
 	public onunload: Function;
@@ -66,7 +58,7 @@ export class Module {
 
 		// const validator = new Vasdsdflidator;
 
-		this.moduleName = data.moduleName;
+		this.name = data.moduleName;
 
 		this.info = Object.freeze({
 			title: data.title,
@@ -87,29 +79,30 @@ export class Module {
 		Object.freeze(this.require);
 		Object.freeze(this.preload);
 
-		this.match = data.match;
+		// this.match = data.match;
+		if (!(data.match instanceof Array) || data.match.length === 0)
+			throw 'URL matches must be a non-empty array';
+
 		this.flags = new FlagHandler(data.flags instanceof Array ?
 			data.flags : []);
 
 		this.runat = data.runat;
 
-		if (!(this.match instanceof Array) || this.match.length === 0)
-			throw 'URL matches must be a non-empty array';
-
 		// Parse to regular expression
-		this.match.forEach((match, i) => {
+		data.match.forEach((match, i) => {
 			if (typeof match === 'string') {
 				('-._~:/?#[]@!$&\'()+,;=').split('').forEach(c => {
 					match = (<string>match).replace(c, '\\' + c);
 				});
 
-				this.match[i] = new RegExp('^' + match.replace('*', '.*') + '$');
+				data.match[i] = new RegExp('^' + match.replace('*', '.*') + '$');
 
 			} else if (!(match instanceof RegExp)) {
 				throw 'Url match must be either a string or a RegExp';
 			}
 		});
 
+		this.match = data.match
 		Object.freeze(this.match);
 
 		this.onload = data.onload instanceof Function ?
@@ -119,15 +112,15 @@ export class Module {
 
 		this.loaded = false;
 
-		if (!Object.keys(GM_getValue(GLOBAL_ENTRY_NAME)).includes(this.moduleName)) {
+		if (!Object.keys(GM_getValue(GLOBAL_ENTRY_NAME)).includes(this.name)) {
 			let gentry = GM_getValue(GLOBAL_ENTRY_NAME);
-			gentry[this.moduleName] = {};
+			gentry[this.name] = {};
 			GM_setValue(GLOBAL_ENTRY_NAME, gentry)
 		}
 
 	}
 
-	public load(loadConfig: boolean = true) {
+	public load(loadConfig: boolean = true): boolean {
 
 		let self = this;
 
@@ -173,8 +166,8 @@ export class Module {
 					if (document.readyState === "loading" && self.runat === 'load') {
 						window.addEventListener('DOMContentLoaded', function() {
 							self.onload()
-						})
-					} else { // Run asap
+						});
+					} else {
 						self.onload();
 					}
 				});
@@ -186,7 +179,7 @@ export class Module {
 		return canExecute;
 	}
 
-	unload() {
+	public unload(): void {
 		if (this.loaded) {
 			this.onunload();
 			this.loaded = false;

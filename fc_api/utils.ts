@@ -1,5 +1,5 @@
 import { Urls } from './urls'
-import { User, BasicUser, UserID, Nickname } from './user'
+import { User, BasicUser, CurrentUser, ID, Nickname } from './user'
 
 export class Utils {
 
@@ -111,6 +111,10 @@ export class Utils {
 			});
 	}
 
+	static getCurrentUser() {
+		return new CurrentUser();
+	}
+
 	static async getSecurityToken(): Promise<string> {
 		const TOKEN = <string>(<any>window).SECURITYTOKEN;
 
@@ -141,10 +145,7 @@ export class Utils {
 				const userTags = Array.from(xml.querySelectorAll<HTMLElement>('user'));
 
 				return userTags.map((userTag: HTMLElement) => {
-					const id: UserID = parseInt(userTag.getAttribute('userid'));
-					const nickname: Nickname = userTag.innerText;
-
-					return new BasicUser(id, nickname);
+					return BasicUser.fromHTML(userTag);
 				});
 			});
 	}

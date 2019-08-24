@@ -1,4 +1,4 @@
-import { Module } from './module.class'
+import { Module } from './module'
 
 /**
  * Implements an interface to the console api
@@ -17,7 +17,7 @@ export class Debug {
 			return void 0;
 
 		if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-			args = [`[${this.hostModule.moduleName}]`, ...args];
+			args = [`[${this.hostModule.name}]`, ...args];
 
 		console.log(...args);
 	}
@@ -27,7 +27,7 @@ export class Debug {
 			return void 0;
 
 		if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-			args = [`[${this.hostModule.moduleName}]`, ...args];
+			args = [`[${this.hostModule.name}]`, ...args];
 
 		console.info(...args);
 	}
@@ -37,7 +37,7 @@ export class Debug {
 			return void 0;
 
 		if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-			args = [`[${this.hostModule.moduleName}]`, ...args];
+			args = [`[${this.hostModule.name}]`, ...args];
 
 		console.warn(...args);
 
@@ -48,7 +48,7 @@ export class Debug {
 			return void 0;
 
 		if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-			args = [`[${this.hostModule.moduleName}]`, ...args];
+			args = [`[${this.hostModule.name}]`, ...args];
 
 		console.error(...args);
 	}
@@ -58,7 +58,7 @@ export class Debug {
 			return void 0;
 
 		if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-			arg = `[${this.hostModule.moduleName}] ${arg}`;
+			arg = `[${this.hostModule.name}] ${arg}`;
 
 		alert(arg);
 	}

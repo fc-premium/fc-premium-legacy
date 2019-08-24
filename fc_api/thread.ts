@@ -2,7 +2,7 @@ import { Urls } from './urls'
 import { Utils } from './utils'
 import { Dynamic } from './dynamic'
 import { Post } from './post'
-import { User, BasicUser, UserID, Nickname } from './user'
+import { BasicUser, UserID, Nickname } from './user'
 
 export type PostCountByUser = Map<BasicUser, number>;
 
@@ -45,7 +45,7 @@ export class Thread extends Dynamic {
 		} else {
 			if (this.authorId === null) {
 				this.authorId = parseInt(html.querySelector('.bigusername').getAttribute('href').split('=')[1]);
-				this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar >[href*="forumdisplay.php?f="]')
+				this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar > [href*="forumdisplay.php?f="]')
 					.getAttribute('href').split('=')[1]);
 
 				this.creationDate = Utils.parseFCDate(html.querySelector<HTMLElement>('[id*="post"] td.thead').innerText);
@@ -138,7 +138,6 @@ export class Thread extends Dynamic {
 		const pageNumbers = Array.from(numbersByPage.keys())
 
 		const pagesRequests = Array.from(numbersByPage.keys()).map(pageNumber => {
-			console.log('Requesting page', pageNumber);
 			return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${Thread.MAX_POSTS_PER_PAGE}`)
 				.then(Utils.responseToHtml);
 		});

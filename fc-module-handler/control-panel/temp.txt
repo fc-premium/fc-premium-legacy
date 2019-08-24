@@ -2,161 +2,14 @@
 /// <reference path="../types/swal2.d.ts" />
 
 import { Utils } from './utils'
-import { Module } from './module.class'
-import { ModuleHandler } from './modulehandler.class'
-import { Config, MetaConfig, MetaConfigType } from './config.class'
+import { Module } from './module'
+import { ModuleHandler } from './module-handler'
+import { Config, MetaConfig, MetaConfigType } from './config'
 import { VERSION_HASH } from './definitions'
 
-const $ = jQuery;
+import { DevTerminal } from '../dev-terminal/terminal'
 
-const GEAR_URL = 'https://cdnjs.cloudflare.com/ajax/libs/octicons/8.3.0/svg/gear.svg';
-const GEAR_IMAGE_TAG = `<i class="material-icons config-button" height="16px">settings</i>`;
-const RESET_BUTTON_TAG = `<span class="reset-button" title="Reset value"></span>`;
-let moduleListTable = '<table class="module_menu"><tr class="title"><td>Name</td><td>Version</td><td>Enabled</td></tr></table>';
-
-const backButton = '<span class="swal2-close backbutton"></span>';
-
-const MODULE = new Module({
-	moduleName: 'CONTROL_PANEL',
-	title: 'Panel de control',
-	description: 'Panel de control para administrar módulos',
-	author: 'pytness',
-	version: '0.1',
-
-	runat: 'load',
-
-	match: ['*']
-});
-
-MODULE.config.getMeta('ENABLED')
-	.flags.unset('CONFIGURABLE');
-
-MODULE.config.define('TOGGLE_COLOR', <MetaConfigType>{
-	title: 'Toogle color',
-	defaultValue: '#b4d455',
-	flags: ['CONFIGURABLE'],
-
-	getter: function() {
-		return Config.HTML.COLOR.GETTER(this.value);
-	},
-
-	parser: function(el: HTMLElement) {
-		let value = Config.HTML.COLOR.PARSER(el);
-
-		MODULE.styles.set('input.toogle:checked+label', {
-			'background-color': value
-		});
-
-		return value;
-	},
-
-	events: {
-		HTMLAppended: function({ }, html: HTMLElement) {
-			$(html).find('input')[0].addEventListener('input', function({ }) {
-				MODULE.styles.set('input.toogle:checked+label', {
-					'background-color': (<HTMLInputElement>this).value
-				});
-			});
-		},
-
-		reset: function() {
-			MODULE.styles.set('input.toogle:checked+label', {
-				'background-color': this.defaultValue
-			});
-		},
-
-		cancel: function() {
-			MODULE.styles.set('input.toogle:checked+label', {
-				'background-color': this.value
-			});
-		}
-	}
-}).define('DEV_MODE', <MetaConfigType>{
-	section: 'Dev',
-	title: 'Dev mode',
-	defaultValue: false,
-	flags: ['CONFIGURABLE'],
-
-	getter: function() {
-		return Config.HTML.SWITCH.GETTER(this.value);
-	},
-
-	parser: function(el: HTMLElement) {
-		return Config.HTML.SWITCH.PARSER(el);
-	},
-
-	events: {
-		HTMLAppended: function(selfConfig: MetaConfig, html: HTMLElement) {
-			console.log(2);
-			$(html).find('input')[0].addEventListener('input', function({ }) {
-				console.log(1);
-				selfConfig.value = (<HTMLInputElement>this).checked;
-				showModuleConfigDialog(selfConfig.hostModule.moduleName);
-			});
-
-		}
-	}
-
-}).hook('MODULE_HANDLER', 'RESOURCES', 'RESOURCES', <MetaConfigType>{
-	title: 'User resources',
-	flags: ['CONFIGURABLE'],
-
-	getter: function() {
-		let value = this.value.join('\n');
-
-		value += value === '' ? '' : '\n';
-
-		return Config.HTML.TEXTAREA.GETTER(value, {
-			cols: 80,
-			rows: 20
-		});
-	},
-
-	parser: function(el: HTMLElement) {
-		return Config.HTML.TEXTAREA.PARSER(el)
-			.split('\n')
-			.map((l: string) => l.trim())
-			.filter((l: string) => l !== '');
-	}
-});
-
-MODULE.onload = function() {
-
-	// window.addEventListener('load', function () {
-	if (Utils.isMobileVersion) {
-		const gearTag = $(GEAR_IMAGE_TAG);
-		gearTag.attr('height', 24);
-
-		$('.mobilebuttonslide').before(gearTag);
-
-		gearTag.on('click', function(e: Event) {
-			if (!Swal.isVisible()) {
-				e.preventDefault();
-				showModuleListDialog();
-			}
-		})
-
-	} else {
-		Mousetrap.bind('esc', function(e) {
-			if (!Swal.isVisible()) {
-				e.preventDefault();
-				showModuleListDialog();
-			}
-		});
-	}
-
-	MODULE.styles.set('input.toogle:checked+label', {
-		'background-color': MODULE.config.get('TOGGLE_COLOR')
-	});
-
-	const HASH_BLOCK = VERSION_HASH.slice(0, 8);
-
-	if (!Utils.isMobileVersion) {
-		$('[id="AutoNumber1"] tbody tr td')[1]
-			.innerText = `Version hash: [${HASH_BLOCK}]`;
-	}
-	// });
-}
+import './constants'
 
 
 function saveConfigDialog(modal: SweetAlertType) {
@@ -365,7 +218,7 @@ function showModuleListDialog() {
 	sortedModuleList.forEach((moduleName: string) => {
 		let module = ModuleHandler.get(moduleName);
 
-		const html = $(`<tr id='${module.moduleName}'>
+		const html = $(`<tr id='${module.name}'>
 				<td><span>${module.info.title}</span></td>
 				<td>${module.info.version}</td>
 				<td></td>
@@ -395,13 +248,21 @@ function showModuleListDialog() {
 
 			// Add config button
 
-			let gearTag = $(GEAR_IMAGE_TAG);
-			gearTag.attr('height', '32px');
+			const terminalButton = $(TERMINAL_BUTTON_TAG);
 
 			$(modal).find('.swal2-close')
-				.before(gearTag);
+				.before(terminalButton);
 
-			gearTag.on('click', () =>
+			terminalButton.on('click', () =>
+				showTerminal()
+			);
+
+			const settingsButton = $(SETTINGS_BUTTON_TAG);
+
+			$(modal).find('.swal2-close')
+				.before(settingsButton);
+
+			settingsButton.on('click', () =>
 				showModuleConfigDialog('CONTROL_PANEL')
 			);
 
@@ -432,6 +293,24 @@ function showModuleListDialog() {
 					module.config.set('ENABLED', enabled);
 				});
 			});
+		}
+	});
+}
+
+
+function showTerminal() {
+	return Swal.fire({
+		title: 'Config panel',
+		html: '<div id="terminal"></div>',
+		heightAuto: false,
+		showConfirmButton: false,
+		showCloseButton: true,
+		animation: false,
+		customClass: 'with-max-height swal-wide',
+
+		onOpen: (modal) => {
+			const terminal = new DevTerminal('#terminal');
+			terminal.init();
 		}
 	});
 }

@@ -1,127 +1,19 @@
-/// <reference path="../node_modules/@types/jquery/index.d.ts" />
+/// <reference path="../../node_modules/@types/jquery/index.d.ts" />
 
-import { Debug } from './debug.class'
-import { LocalStorage } from './storage.class'
-import { MetaConfigType, Config } from './config.class'
-import { FlagHandler } from './flaghandler.class'
-import { CSSHandler } from './csshandler.class'
-import { Utils } from './utils'
-import { FC } from '../fc_api/api'
+import {
+	Debug,
+	LocalStorage,
+	Config,
+	MetaConfigType,
+	FlagHandler,
+	CSSHandler
+} from '../module'
 
-import { Module, ModuleParameters } from './module.class'
-import { GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS } from './definitions'
-
-class ResourceHandler {
-	static parseUrl(link: string) {
-
-		let url: URL = null;
-
-		// TODO: Change this
-		if (link[0] === '#')
-			return null;
-
-		try {
-			const priorizate = link[0] === '!';
-
-			if (priorizate)
-				link = link.slice(1);
-
-			url = new URL(link);
-
-			const protocol = url.protocol;
-			const pathname = url.pathname.replace('//', '/');
-
-			url.protocol = 'https:'
-			url.pathname = pathname;
-
-			switch (protocol) {
-				case 'rgh:':
-					url.hostname = 'raw.githubusercontent.com';
-					break;
-			}
-
-			// TODO: Allow priorization
-			// url.priorizate = priorizate;
-
-		} catch (err) {
-			url = null;
-		}
-
-		return url;
-	}
-
-	static async unpackJSONlinks(resources: Array<string>): Promise<Array<[string | string[], number]>> { // Unpack json links
-		// static async unpackJSONlinks(link: string, index: number) { // Unpack json links
-		return Promise.all(resources.map((link: string, index: number) =>
-			new Promise(function(resolve) {
-
-				let url: URL = ResourceHandler.parseUrl(link);
-
-				if (url === null)
-					return resolve(null);
-
-				if (!url.pathname.endsWith('.json'))
-					return resolve([url.href, index]);
-
-				fetch(url.toString(), <RequestInit>NO_CACHE_HEADERS).then((response: Response) =>
-					response.json()
-				).then((parsed: Object) =>
-					resolve([<string[]>parsed, index])
-				).catch(() =>
-					resolve(null)
-				);
-			})
-		));
-	}
-
-	static async sortResources(resources: Array<[string | string[], number]>): Promise<Array<[string, number]>> {
-
-		// Remove invalid urls
-		resources = resources.filter(r => r !== null);
-
-		// Sort by index
-		const resourcesWithoutIndex = resources.sort(([{ }, url_a_index], [{ }, url_b_index]) =>
-			url_a_index - url_b_index
-		).map(r => r[0]).flat();
-
-		// remove duplicated urls
-		return Array.from(new Set(resourcesWithoutIndex)).map((res: string, i: number) => {
-			return [res, i];
-		});
-
-	}
-
-	static async getSourceCode(resources: Array<[string, number]>) {
-		// Download scripts in parallel
-		return Promise.all(resources.map(([link, resourceIndex]: [string, number]) => {
-			return new Promise(function(resolve) {
-
-				let url: URL = ResourceHandler.parseUrl(link);
-
-				if (url === null)
-					return resolve(false);
-
-				if (!url.pathname.endsWith('.js'))
-					return resolve(false);
-
-				return fetch(url.toString(), <RequestInit>NO_CACHE_HEADERS).then(response =>
-					response.text()
-				).then(scriptSource =>
-					resolve([scriptSource, resourceIndex])
-				).catch((err) => {
-					this.MODULE.debug.error(url.href, err);
-					resolve(false)
-				});
-			})
-		}))
-	}
-
-	static contextEval(source: string): Module {
-		return (function(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
-			return eval(source);
-		})(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS);
-	}
-}
+import { Utils } from '../utils'
+import { FC } from '../../fc_api/api'
+import { ResourceHandler } from './resource-handler'
+import { Module, ModuleParameters } from '../module'
+import { GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS } from '../definitions'
 
 const MODULE = new Module(<ModuleParameters>{
 	moduleName: 'MODULE_HANDLER',
@@ -184,10 +76,16 @@ MODULE.onload = function() {
 	);
 }
 
+function contextEval(source: string): Module {
+	return (function(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
+		return eval(source);
+	})(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS);
+}
+
 export class ModuleHandler {
 
 	// static readonly MODULE: Module = MODULE;
-	static modules: Map<string, Module> = new Map([[MODULE.moduleName, MODULE]]);
+	static modules: Map<string, Module> = new Map([[MODULE.name, MODULE]]);
 
 	public static has(key: string): boolean {
 		return ModuleHandler.modules.has(key);
@@ -201,10 +99,10 @@ export class ModuleHandler {
 		if (!(module instanceof Module))
 			throw 'Module must be an instance of Module';
 
-		if (ModuleHandler.modules.has(module.moduleName))
+		if (ModuleHandler.modules.has(module.name))
 			throw 'Module already declared';
 
-		ModuleHandler.modules.set(module.moduleName, module);
+		ModuleHandler.modules.set(module.name, module);
 	}
 
 	public static delete(key: string): boolean {
@@ -224,8 +122,8 @@ export class ModuleHandler {
 		let regModules = GM_getValue(GLOBAL_ENTRY_NAME);
 
 		ModuleHandler.modules.forEach((module: Module) => {
-			if (!Object.keys(regModules).includes(module.moduleName)) {
-				regModules[module.moduleName] = {};
+			if (!Object.keys(regModules).includes(module.name)) {
+				regModules[module.name] = {};
 			}
 		});
 
@@ -238,7 +136,7 @@ export class ModuleHandler {
 		// Check for colliding requirements
 		ModuleHandler.modules.forEach((module: Module) => {
 
-			let moduleName = module.moduleName;
+			let moduleName = module.name;
 
 			module.require.every(requiredModuleName => {
 				if (!ModuleHandler.modules.has(requiredModuleName)) {
@@ -288,7 +186,7 @@ export class ModuleHandler {
 					ai - bi
 				).forEach(([source, { }]) => {
 					try {
-						const EVALED_MODULE = ResourceHandler.contextEval(source);
+						const EVALED_MODULE = contextEval(source);
 
 						if (EVALED_MODULE instanceof Module)
 							ModuleHandler.push(EVALED_MODULE)
@@ -313,19 +211,17 @@ export class ModuleHandler {
 
 			if (module.load()) {
 				MODULE.debug.log(
-					`Loaded [${module.moduleName}]:` +
+					`Loaded [${module.name}]:` +
 					`\n\tTitle:   ${module.info.title}` +
 					`\n\tDesc:    ${module.info.description}` +
 					`\n\tAuthor:  ${module.info.author}` +
 					`\n\tVersion: ${module.info.version}`
 				);
 			} else {
-				MODULE.debug.log('Didnt load ', module.moduleName);
+				MODULE.debug.log('Didnt load ', module.name);
 			}
 		});
 	}
-
-	//
 
 	public static unloadModules(): void {
 		ModuleHandler.modules.forEach(module => {
@@ -335,7 +231,7 @@ export class ModuleHandler {
 
 			module.unload();
 
-			MODULE.debug.log(`Unloaded [${module.moduleName}]`);
+			MODULE.debug.log(`Unloaded [${module.name}]`);
 
 		});
 	}
@@ -350,7 +246,7 @@ export class ModuleHandler {
 			module.onunload();
 			module.onload();
 
-			MODULE.debug.log(`Reloaded [${module.moduleName}]`);
+			MODULE.debug.log(`Reloaded [${module.name}]`);
 		});
 	}
 }

@@ -2,7 +2,7 @@
 // @name           FC Script Handler
 // @description    Modular script
 // @author         pytness
-// @version        2.0.8
+// @version        3.0.1
 // @namespace      http://tampermonkey.net/
 
 // @match          https://*.forocoches.com/*
@@ -129,7 +129,7 @@
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 25);
+/******/ 	return __webpack_require__(__webpack_require__.s = 28);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -140,7 +140,7 @@
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "c", function() { return VERSION_HASH; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return GLOBAL_ENTRY_NAME; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "b", function() { return NO_CACHE_HEADERS; });
-/* harmony import */ var sha_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(14);
+/* harmony import */ var sha_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(16);
 /* harmony import */ var sha_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(sha_js__WEBPACK_IMPORTED_MODULE_0__);
 
 window = unsafeWindow;
@@ -173,245 +173,10 @@ Object.defineProperties(window, {
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return ModuleHandler; });
-/* harmony import */ var _debug_class__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(9);
-/* harmony import */ var _storage_class__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(10);
-/* harmony import */ var _config_class__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(2);
-/* harmony import */ var _flaghandler_class__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(7);
-/* harmony import */ var _csshandler_class__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(11);
-/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(8);
-/* harmony import */ var _fc_api_api__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(15);
-/* harmony import */ var _module_class__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(4);
-/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(0);
+/* harmony import */ var _module_handler__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(29);
+/* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "a", function() { return _module_handler__WEBPACK_IMPORTED_MODULE_0__["a"]; });
 
 
-
-
-
-
-
-
-
-class ResourceHandler {
-    static parseUrl(link) {
-        let url = null;
-        if (link[0] === '#')
-            return null;
-        try {
-            const priorizate = link[0] === '!';
-            if (priorizate)
-                link = link.slice(1);
-            url = new URL(link);
-            const protocol = url.protocol;
-            const pathname = url.pathname.replace('//', '/');
-            url.protocol = 'https:';
-            url.pathname = pathname;
-            switch (protocol) {
-                case 'rgh:':
-                    url.hostname = 'raw.githubusercontent.com';
-                    break;
-            }
-        }
-        catch (err) {
-            url = null;
-        }
-        return url;
-    }
-    static async unpackJSONlinks(resources) {
-        return Promise.all(resources.map((link, index) => new Promise(function (resolve) {
-            let url = ResourceHandler.parseUrl(link);
-            if (url === null)
-                return resolve(null);
-            if (!url.pathname.endsWith('.json'))
-                return resolve([url.href, index]);
-            fetch(url.toString(), _definitions__WEBPACK_IMPORTED_MODULE_8__[/* NO_CACHE_HEADERS */ "b"]).then((response) => response.json()).then((parsed) => resolve([parsed, index])).catch(() => resolve(null));
-        })));
-    }
-    static async sortResources(resources) {
-        resources = resources.filter(r => r !== null);
-        const resourcesWithoutIndex = resources.sort(([{}, url_a_index], [{}, url_b_index]) => url_a_index - url_b_index).map(r => r[0]).flat();
-        return Array.from(new Set(resourcesWithoutIndex)).map((res, i) => {
-            return [res, i];
-        });
-    }
-    static async getSourceCode(resources) {
-        return Promise.all(resources.map(([link, resourceIndex]) => {
-            return new Promise(function (resolve) {
-                let url = ResourceHandler.parseUrl(link);
-                if (url === null)
-                    return resolve(false);
-                if (!url.pathname.endsWith('.js'))
-                    return resolve(false);
-                return fetch(url.toString(), _definitions__WEBPACK_IMPORTED_MODULE_8__[/* NO_CACHE_HEADERS */ "b"]).then(response => response.text()).then(scriptSource => resolve([scriptSource, resourceIndex])).catch((err) => {
-                    this.MODULE.debug.error(url.href, err);
-                    resolve(false);
-                });
-            });
-        }));
-    }
-    static contextEval(source) {
-        return (function (Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
-            return eval(source);
-        })(_debug_class__WEBPACK_IMPORTED_MODULE_0__[/* Debug */ "a"], _storage_class__WEBPACK_IMPORTED_MODULE_1__[/* LocalStorage */ "a"], _config_class__WEBPACK_IMPORTED_MODULE_2__[/* Config */ "a"], _flaghandler_class__WEBPACK_IMPORTED_MODULE_3__[/* FlagHandler */ "a"], _csshandler_class__WEBPACK_IMPORTED_MODULE_4__[/* CSSHandler */ "a"], _module_class__WEBPACK_IMPORTED_MODULE_7__[/* Module */ "a"], _fc_api_api__WEBPACK_IMPORTED_MODULE_6__[/* FC */ "a"], _utils__WEBPACK_IMPORTED_MODULE_5__[/* Utils */ "a"], ModuleHandler, _definitions__WEBPACK_IMPORTED_MODULE_8__[/* GLOBAL_ENTRY_NAME */ "a"], _definitions__WEBPACK_IMPORTED_MODULE_8__[/* VERSION_HASH */ "c"], _definitions__WEBPACK_IMPORTED_MODULE_8__[/* NO_CACHE_HEADERS */ "b"]);
-    }
-}
-const MODULE = new _module_class__WEBPACK_IMPORTED_MODULE_7__[/* Module */ "a"]({
-    moduleName: 'MODULE_HANDLER',
-    title: 'Module handler',
-    author: 'pytness',
-    version: '1.1',
-    match: ['*']
-});
-MODULE.config.getMeta('ENABLED')
-    .flags.unset('CONFIGURABLE');
-MODULE.config.define('LAST_VERSION_HASH', {
-    defaultValue: false,
-}).define('RESOURCES', {
-    title: 'User resources',
-    defaultValue: [
-        'rgh:Pytness/fc-modules/master/modules/defaultSources.json'
-    ],
-    flags: ['CONFIGURABLE'],
-    getter: function () {
-        let value = this.value.join('\n');
-        if (value.length > 0)
-            value += '\n';
-        return _config_class__WEBPACK_IMPORTED_MODULE_2__[/* Config */ "a"].HTML.TEXTAREA.GETTER(value, {
-            cols: 80,
-            rows: 20
-        });
-    },
-    parser: function (el) {
-        return _config_class__WEBPACK_IMPORTED_MODULE_2__[/* Config */ "a"].HTML.TEXTAREA.PARSER(el)
-            .split('\n')
-            .map((l) => l.trim())
-            .filter((l) => l !== '');
-    }
-});
-MODULE.config.getMeta('ENABLED')
-    .flags.unset('CONFIGURABLE');
-MODULE.onload = function () {
-    this.config.set('DEBUG_MODULE_NAME', false);
-    this.config.set('DEBUG_MODE', true);
-    if (_definitions__WEBPACK_IMPORTED_MODULE_8__[/* VERSION_HASH */ "c"] != this.config.get('LAST_VERSION_HASH')) {
-        this.config.set('LAST_VERSION_HASH', _definitions__WEBPACK_IMPORTED_MODULE_8__[/* VERSION_HASH */ "c"]);
-    }
-    ModuleHandler.loadUserResources().then(() => ModuleHandler.loadModules());
-};
-class ModuleHandler {
-    static has(key) {
-        return ModuleHandler.modules.has(key);
-    }
-    static get(key) {
-        return ModuleHandler.modules.get(key);
-    }
-    static push(module) {
-        if (!(module instanceof _module_class__WEBPACK_IMPORTED_MODULE_7__[/* Module */ "a"]))
-            throw 'Module must be an instance of Module';
-        if (ModuleHandler.modules.has(module.moduleName))
-            throw 'Module already declared';
-        ModuleHandler.modules.set(module.moduleName, module);
-    }
-    static delete(key) {
-        return this.modules.delete(key);
-    }
-    static keys() {
-        return Array.from(this.modules.keys());
-    }
-    static size() {
-        return ModuleHandler.modules.size;
-    }
-    static registerModules() {
-        let regModules = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_8__[/* GLOBAL_ENTRY_NAME */ "a"]);
-        ModuleHandler.modules.forEach((module) => {
-            if (!Object.keys(regModules).includes(module.moduleName)) {
-                regModules[module.moduleName] = {};
-            }
-        });
-        GM_setValue(_definitions__WEBPACK_IMPORTED_MODULE_8__[/* GLOBAL_ENTRY_NAME */ "a"], regModules);
-    }
-    static sortModules() {
-        ModuleHandler.modules.forEach((module) => {
-            let moduleName = module.moduleName;
-            module.require.every(requiredModuleName => {
-                if (!ModuleHandler.modules.has(requiredModuleName)) {
-                    throw `Module '${moduleName}' requires '${requiredModuleName}'`;
-                }
-                let requiredModule = ModuleHandler.modules.get(requiredModuleName);
-                if (requiredModule.require.includes(moduleName)) {
-                    throw `Modules '${moduleName}' and '${requiredModuleName}' must not require each other`;
-                }
-            });
-        });
-        let moduleArray = Array.from(ModuleHandler.modules.entries());
-        moduleArray.sort(([_a, MODULE_A], [_b, MODULE_B]) => {
-            if (MODULE_A.require.includes(_b))
-                return 1;
-            if (MODULE_B.require.includes(_a))
-                return -1;
-            return 0;
-        });
-        ModuleHandler.modules.clear();
-        moduleArray.forEach(([key, value]) => {
-            ModuleHandler.modules.set(key, value);
-        });
-    }
-    static async loadUserResources() {
-        let resources = MODULE.config.get('RESOURCES');
-        return ResourceHandler.unpackJSONlinks(resources)
-            .then(ResourceHandler.sortResources)
-            .then(ResourceHandler.getSourceCode)
-            .then(scriptSources => {
-            scriptSources.filter(a => a !== false).sort(([_a, ai], [_b, bi]) => ai - bi).forEach(([source, {}]) => {
-                try {
-                    const EVALED_MODULE = ResourceHandler.contextEval(source);
-                    if (EVALED_MODULE instanceof _module_class__WEBPACK_IMPORTED_MODULE_7__[/* Module */ "a"])
-                        ModuleHandler.push(EVALED_MODULE);
-                }
-                catch (err) {
-                    MODULE.debug.error(err);
-                }
-            });
-        });
-    }
-    static loadModules() {
-        ModuleHandler.registerModules();
-        ModuleHandler.sortModules();
-        ModuleHandler.modules.forEach((module) => {
-            if (module.loaded)
-                return;
-            if (module.load()) {
-                MODULE.debug.log(`Loaded [${module.moduleName}]:` +
-                    `\n\tTitle:   ${module.info.title}` +
-                    `\n\tDesc:    ${module.info.description}` +
-                    `\n\tAuthor:  ${module.info.author}` +
-                    `\n\tVersion: ${module.info.version}`);
-            }
-            else {
-                MODULE.debug.log('Didnt load ', module.moduleName);
-            }
-        });
-    }
-    static unloadModules() {
-        ModuleHandler.modules.forEach(module => {
-            if (!module.loaded)
-                return;
-            module.unload();
-            MODULE.debug.log(`Unloaded [${module.moduleName}]`);
-        });
-    }
-    static reloadModules() {
-        MODULE.debug.log('Reloading modules...');
-        ModuleHandler.modules.forEach(module => {
-            if (!module.loaded)
-                return;
-            module.onunload();
-            module.onload();
-            MODULE.debug.log(`Reloaded [${module.moduleName}]`);
-        });
-    }
-}
-ModuleHandler.modules = new Map([[MODULE.moduleName, MODULE]]);
 
 
 /***/ }),
@@ -419,20 +184,173 @@ ModuleHandler.modules = new Map([[MODULE.moduleName, MODULE]]);
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* unused harmony export MetaConfig */
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return Config; });
-/* harmony import */ var _flaghandler_class__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(7);
-/* harmony import */ var _modulehandler_class__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(1);
 
+// CONCATENATED MODULE: ./out/fc-module-handler/module/css-handler.js
+class CSSHandler {
+    constructor(moduleName) {
+        this.styleElement = null;
+        this.todoPool = [];
+        this.moduleHost = moduleName;
+        this.styleElement = document.createElement('style');
+        this.styleElement.setAttribute('isVirtual', 'true');
+        this.styleElement.setAttribute('moduleHost', this.moduleHost.name);
+        if (document.readyState !== 'complete') {
+            window.addEventListener('load', () => this.appendStyleElementAndApplyRules());
+        }
+        else {
+            this.appendStyleElementAndApplyRules();
+        }
+    }
+    get styleSheet() {
+        return this.styleElement.sheet;
+    }
+    ;
+    appendStyleElementAndApplyRules() {
+        document.head.appendChild(this.styleElement);
+        this.todoPool.forEach((rule) => this.set(rule.selector, rule.cssText));
+    }
+    pretifySelector(selector) {
+        const length = this.styleSheet.cssRules.length;
+        this.styleSheet.addRule(selector, '');
+        selector = this.styleSheet.cssRules[length].selectorText;
+        this.styleSheet.removeRule(length);
+        return selector;
+    }
+    objectToCSS(cssObject) {
+        let css = Object.keys(cssObject)
+            .map(key => `${key}: ${cssObject[key]};`).join('');
+        return css;
+    }
+    ;
+    CSSToObject(css) {
+        const obj = {};
+        css.split('{').slice(-1)[0].split('}')[0]
+            .trim().split(';').forEach(rule => {
+            let [key, value] = rule.split(':');
+            if (key !== undefined && value !== undefined)
+                obj[key.trim()] = value.trim();
+        });
+        return obj;
+    }
+    get(selector) {
+        if (this.styleSheet !== null) {
+            let i = null;
+            selector = selector.trim();
+            let result = Array.from(this.styleSheet.rules)
+                .filter((rule, ri) => {
+                i = i === null ? ri : i;
+                return rule.selectorText === selector;
+            });
+            if (result.length > 0) {
+                result = result[0];
+                result.index = i;
+            }
+            else {
+                result = {
+                    index: -1
+                };
+            }
+            return result;
+        }
+    }
+    set(selector, cssRules) {
+        if (typeof cssRules === 'string')
+            cssRules = this.CSSToObject(cssRules);
+        if (this.styleSheet !== null) {
+            selector = this.pretifySelector(selector);
+            const cssRule = this.get(selector);
+            let currentCssObj = {};
+            if (cssRule.index > -1) {
+                currentCssObj = this.CSSToObject(cssRule.cssText);
+                this.styleSheet.removeRule(cssRule.index);
+            }
+            Object.assign(currentCssObj, cssRules);
+            this.styleSheet.addRule(selector, this.objectToCSS(currentCssObj));
+        }
+        else {
+            this.todoPool.push({
+                selector: selector,
+                cssText: cssRules
+            });
+        }
+        return this;
+    }
+}
 
-class MetaConfig {
+// CONCATENATED MODULE: ./out/fc-module-handler/module/debug.js
+class Debug {
+    constructor(module) {
+        this.hostModule = module;
+    }
+    log(...args) {
+        if (this.hostModule.config.get('DEBUG_MODE') !== true)
+            return void 0;
+        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
+            args = [`[${this.hostModule.name}]`, ...args];
+        console.log(...args);
+    }
+    info(...args) {
+        if (this.hostModule.config.get('DEBUG_MODE') !== true)
+            return void 0;
+        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
+            args = [`[${this.hostModule.name}]`, ...args];
+        console.info(...args);
+    }
+    warn(...args) {
+        if (this.hostModule.config.get('DEBUG_MODE') !== true)
+            return void 0;
+        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
+            args = [`[${this.hostModule.name}]`, ...args];
+        console.warn(...args);
+    }
+    error(...args) {
+        if (this.hostModule.config.get('DEBUG_MODE') !== true)
+            return void 0;
+        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
+            args = [`[${this.hostModule.name}]`, ...args];
+        console.error(...args);
+    }
+    alert(arg) {
+        if (this.hostModule.config.get('DEBUG_MODE') !== true)
+            return void 0;
+        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
+            arg = `[${this.hostModule.name}] ${arg}`;
+        alert(arg);
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/module/flaghandler.js
+class FlagHandler {
+    constructor(flag_arr) {
+        this.__flags = new Set(flag_arr);
+    }
+    isset(...flags) {
+        return flags.every(f => this.__flags.has(f));
+    }
+    unset(...flags) {
+        flags.forEach(f => this.__flags.delete(f));
+    }
+    set(...flags) {
+        flags.forEach(f => this.__flags.add(f));
+    }
+    flags() {
+        return Array.from(this.__flags.keys());
+    }
+    clear() {
+        this.__flags.clear();
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/module/config/meta-config.js
+
+class meta_config_MetaConfig {
     constructor(moduleReference, key, metaConfig) {
         this.hostModule = moduleReference;
         this.referenceKey = key;
         this.__events__ = new Map();
         let _flags = metaConfig.flags instanceof Array ?
             metaConfig.flags : [];
-        this.flags = new _flaghandler_class__WEBPACK_IMPORTED_MODULE_0__[/* FlagHandler */ "a"](_flags);
+        this.flags = new FlagHandler(_flags);
         if (this.flags.isset('CONFIGURABLE') || this.flags.isset('WIDGET')) {
             if (typeof metaConfig.getter !== 'function')
                 throw [this.hostModule, 'A configurable config / widget needs a getter method'];
@@ -493,27 +411,44 @@ class MetaConfig {
         });
     }
 }
-class Hook extends MetaConfig {
+
+// CONCATENATED MODULE: ./out/fc-module-handler/module/config/hook.js
+
+class hook_Hook extends meta_config_MetaConfig {
     constructor(moduleReference, hookConfig, metaConfig) {
         super(moduleReference, hookConfig.referenceKey, metaConfig);
         this.hook = hookConfig;
-        Object.defineProperties(this, {
-            value: {
-                get: () => this.hook.value,
-                set: (value) => this.hook.value = value
-            },
-            defaultValue: {
-                get: () => this.hook.defaultValue,
-                set: (value) => this.hook.defaultValue = value
-            }
-        });
+    }
+    get value() {
+        return this.hook !== undefined ?
+            this.hook.value : undefined;
+    }
+    set value(value) {
+        if (this.hook !== undefined)
+            this.hook.value = value;
+    }
+    get defaultValue() {
+        return this.hook !== undefined ?
+            this.hook.defaultValue : undefined;
+    }
+    set defaultValue(value) {
+        if (this.hook !== undefined)
+            this.hook.defaultValue = value;
     }
 }
-class Config {
+
+// EXTERNAL MODULE: ./out/fc-module-handler/module-handler/index.js
+var module_handler = __webpack_require__(1);
+
+// CONCATENATED MODULE: ./out/fc-module-handler/module/config/config.js
+
+
+
+class config_Config {
     constructor(module) {
         this.__config = new Map();
         this.hostModule = module;
-        Config.DEFAULT_CONFIG.forEach(([key, value]) => this.define(key, value));
+        config_Config.DEFAULT_CONFIG.forEach(([key, value]) => this.define(key, value));
     }
     get(key) {
         return this.__config.has(key) ?
@@ -525,7 +460,7 @@ class Config {
     set(key, value, autosave = true) {
         if (this.__config.has(key)) {
             const config = this.__config.get(key);
-            if (config instanceof Hook) {
+            if (config instanceof hook_Hook) {
                 config.hook.hostModule.config.set(config.referenceKey, value);
             }
             else {
@@ -562,7 +497,7 @@ class Config {
     define(key, conf) {
         if (this.__config.has(key))
             throw 'Config key already exists';
-        this.__config.set(key, new MetaConfig(this.hostModule, key, conf));
+        this.__config.set(key, new meta_config_MetaConfig(this.hostModule, key, conf));
         return this;
     }
     undefine(key) {
@@ -572,12 +507,12 @@ class Config {
         this.hostModule.storage.set('config', storagedConfig);
     }
     hook(hookModuleName, key, newKey, config) {
-        const hookModule = _modulehandler_class__WEBPACK_IMPORTED_MODULE_1__[/* ModuleHandler */ "a"].get(hookModuleName);
+        const hookModule = module_handler["a" /* ModuleHandler */].get(hookModuleName);
         if (!hookModule.config.has(key))
             throw 'Config hook key does not exists';
         if (this.__config.has(newKey))
             throw 'Config hook newKey already exists';
-        let chook = new Hook(this.hostModule, hookModule.config.getMeta(key), config);
+        let chook = new hook_Hook(this.hostModule, hookModule.config.getMeta(key), config);
         this.__config.set(newKey, chook);
         return this;
     }
@@ -608,13 +543,13 @@ class Config {
         const config = {};
         this.keys().forEach(key => {
             let conf = this.__config.get(key);
-            if (!(conf instanceof Hook) && !conf.flags.isset('WIDGET'))
+            if (!(conf instanceof hook_Hook) && !conf.flags.isset('WIDGET'))
                 config[key] = conf.value;
         });
         return config;
     }
 }
-Object.defineProperty(Config, 'HTML', {
+Object.defineProperty(config_Config, 'HTML', {
     get: () => ({
         INPUT: {
             GETTER: (value, attr = {}) => {
@@ -668,7 +603,7 @@ Object.defineProperty(Config, 'HTML', {
         },
         HOTKEY: {
             GETTER: (key, filterfunc = null) => {
-                let input = Config.HTML.INPUT.GETTER(key, {
+                let input = config_Config.HTML.INPUT.GETTER(key, {
                     type: 'text',
                     class: 'fancy-input disabled mousetrap hotkey',
                     readonly: true,
@@ -731,7 +666,7 @@ Object.defineProperty(Config, 'HTML', {
                 });
                 return html;
             },
-            PARSER: (el) => Config.HTML.INPUT.PARSER(el)
+            PARSER: (el) => config_Config.HTML.INPUT.PARSER(el)
         },
         BUTTON: {
             GETTER: (value, attr = {}) => {
@@ -745,18 +680,18 @@ Object.defineProperty(Config, 'HTML', {
         }
     })
 });
-Object.defineProperty(Config, 'DEFAULT_CONFIG', {
+Object.defineProperty(config_Config, 'DEFAULT_CONFIG', {
     get: () => ([
         ['ENABLED', {
                 title: 'Enabled',
                 defaultValue: true,
                 flags: ['CONFIGURABLE'],
                 getter: function () {
-                    return Config.HTML.SWITCH.GETTER(this.value);
+                    return config_Config.HTML.SWITCH.GETTER(this.value);
                 },
                 parser: function (element) {
                     let lastValue = this.value;
-                    let value = Config.HTML.SWITCH.PARSER(element);
+                    let value = config_Config.HTML.SWITCH.PARSER(element);
                     if (lastValue !== value) {
                         this.value = value;
                         if (value) {
@@ -775,9 +710,9 @@ Object.defineProperty(Config, 'DEFAULT_CONFIG', {
                 flags: ['CONFIGURABLE'],
                 section: 'Debug',
                 getter: function () {
-                    return Config.HTML.SWITCH.GETTER(this.value);
+                    return config_Config.HTML.SWITCH.GETTER(this.value);
                 },
-                parser: Config.HTML.SWITCH.PARSER,
+                parser: config_Config.HTML.SWITCH.PARSER,
                 events: {
                     HTMLAppended: function (meta, el) {
                         const toogle = $(el).find('input')[0];
@@ -795,13 +730,166 @@ Object.defineProperty(Config, 'DEFAULT_CONFIG', {
     ])
 });
 
+// CONCATENATED MODULE: ./out/fc-module-handler/module/config/index.js
+
+
+
+
+// EXTERNAL MODULE: ./out/fc-module-handler/definitions.js
+var definitions = __webpack_require__(0);
+
+// CONCATENATED MODULE: ./out/fc-module-handler/module/storage.js
+
+class storage_LocalStorage {
+    constructor(moduleReference) {
+        this.module = moduleReference;
+    }
+    has(key) {
+        const globalObject = GM_getValue(definitions["a" /* GLOBAL_ENTRY_NAME */]);
+        return globalObject[this.module.name].hasOwnProperty(key);
+    }
+    get(key) {
+        const globalObject = GM_getValue(definitions["a" /* GLOBAL_ENTRY_NAME */]);
+        return globalObject[this.module.name][key];
+    }
+    set(key, value) {
+        const globalObject = GM_getValue(definitions["a" /* GLOBAL_ENTRY_NAME */]);
+        globalObject[this.module.name][key] = value;
+        GM_setValue(definitions["a" /* GLOBAL_ENTRY_NAME */], globalObject);
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/module/module.js
+
+
+
+
+
+
+
+;
+;
+class module_Module {
+    constructor(data) {
+        this.debug = new Debug(this);
+        this.storage = new storage_LocalStorage(this);
+        this.config = new config_Config(this);
+        this.styles = new CSSHandler(this);
+        this.name = data.moduleName;
+        this.info = Object.freeze({
+            title: data.title,
+            description: data.description,
+            author: data.author,
+            version: data.version
+        });
+        this.require = data.require instanceof Array ?
+            data.require : [];
+        this.preload = data.preload instanceof Array ?
+            data.preload : [];
+        this.hasMobileSupport = typeof data.hasMobileSupport === 'boolean' ?
+            data.hasMobileSupport : false;
+        Object.freeze(this.require);
+        Object.freeze(this.preload);
+        if (!(data.match instanceof Array) || data.match.length === 0)
+            throw 'URL matches must be a non-empty array';
+        this.flags = new FlagHandler(data.flags instanceof Array ?
+            data.flags : []);
+        this.runat = data.runat;
+        data.match.forEach((match, i) => {
+            if (typeof match === 'string') {
+                ('-._~:/?#[]@!$&\'()+,;=').split('').forEach(c => {
+                    match = match.replace(c, '\\' + c);
+                });
+                data.match[i] = new RegExp('^' + match.replace('*', '.*') + '$');
+            }
+            else if (!(match instanceof RegExp)) {
+                throw 'Url match must be either a string or a RegExp';
+            }
+        });
+        this.match = data.match;
+        Object.freeze(this.match);
+        this.onload = data.onload instanceof Function ?
+            data.onload : () => { };
+        this.onunload = data.onunload instanceof Function ?
+            data.onunload : () => { };
+        this.loaded = false;
+        if (!Object.keys(GM_getValue(definitions["a" /* GLOBAL_ENTRY_NAME */])).includes(this.name)) {
+            let gentry = GM_getValue(definitions["a" /* GLOBAL_ENTRY_NAME */]);
+            gentry[this.name] = {};
+            GM_setValue(definitions["a" /* GLOBAL_ENTRY_NAME */], gentry);
+        }
+    }
+    load(loadConfig = true) {
+        let self = this;
+        if (loadConfig)
+            this.config.loadSavedConfig();
+        let canExecute = this.require.every(requiredModule => {
+            let reqModule = module_handler["a" /* ModuleHandler */].get(requiredModule);
+            if (!reqModule.loaded) {
+                self.debug.error(`Required module "${requiredModule}" not loaded or enabled`);
+            }
+            return reqModule.loaded;
+        });
+        if (!self.loaded && self.config.get('ENABLED') && canExecute) {
+            canExecute = !self.match.every(match => !match.test(location.pathname + location.search));
+            if (canExecute) {
+                let preloadMap = this.preload.map(src => {
+                    return new Promise(function (resolve) {
+                        let script = $('<script>');
+                        $('html > head').append(script);
+                        script[0].onload = function () {
+                            resolve();
+                        };
+                        script.attr('src', src);
+                    });
+                });
+                Promise.all(preloadMap).then(function () {
+                    if (document.readyState === "loading" && self.runat === 'load') {
+                        window.addEventListener('DOMContentLoaded', function () {
+                            self.onload();
+                        });
+                    }
+                    else {
+                        self.onload();
+                    }
+                });
+                this.loaded = true;
+            }
+        }
+        return canExecute;
+    }
+    unload() {
+        if (this.loaded) {
+            this.onunload();
+            this.loaded = false;
+        }
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/module/index.js
+/* concated harmony reexport CSSHandler */__webpack_require__.d(__webpack_exports__, "a", function() { return CSSHandler; });
+/* concated harmony reexport Debug */__webpack_require__.d(__webpack_exports__, "c", function() { return Debug; });
+/* concated harmony reexport FlagHandler */__webpack_require__.d(__webpack_exports__, "d", function() { return FlagHandler; });
+/* concated harmony reexport Module */__webpack_require__.d(__webpack_exports__, "f", function() { return module_Module; });
+/* concated harmony reexport LocalStorage */__webpack_require__.d(__webpack_exports__, "e", function() { return storage_LocalStorage; });
+/* unused concated harmony import MetaConfig */
+/* unused concated harmony import Hook */
+/* concated harmony reexport Config */__webpack_require__.d(__webpack_exports__, "b", function() { return config_Config; });
+
+
+
+
+
+
+
 
 /***/ }),
-/* 3 */
+/* 3 */,
+/* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* eslint-disable node/no-deprecated-api */
-var buffer = __webpack_require__(17)
+var buffer = __webpack_require__(19)
 var Buffer = buffer.Buffer
 
 // alternative to using Object.keys for old browsers
@@ -867,126 +955,6 @@ SafeBuffer.allocUnsafeSlow = function (size) {
 
 
 /***/ }),
-/* 4 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return Module; });
-/* harmony import */ var _config_class__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
-/* harmony import */ var _csshandler_class__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(11);
-/* harmony import */ var _debug_class__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(9);
-/* harmony import */ var _storage_class__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(10);
-/* harmony import */ var _flaghandler_class__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(7);
-/* harmony import */ var _modulehandler_class__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(1);
-/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(0);
-
-
-
-
-
-
-
-;
-;
-class Module {
-    constructor(data) {
-        this.debug = new _debug_class__WEBPACK_IMPORTED_MODULE_2__[/* Debug */ "a"](this);
-        this.storage = new _storage_class__WEBPACK_IMPORTED_MODULE_3__[/* LocalStorage */ "a"](this);
-        this.config = new _config_class__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "a"](this);
-        this.styles = new _csshandler_class__WEBPACK_IMPORTED_MODULE_1__[/* CSSHandler */ "a"](this);
-        this.moduleName = data.moduleName;
-        this.info = Object.freeze({
-            title: data.title,
-            description: data.description,
-            author: data.author,
-            version: data.version
-        });
-        this.require = data.require instanceof Array ?
-            data.require : [];
-        this.preload = data.preload instanceof Array ?
-            data.preload : [];
-        this.hasMobileSupport = typeof data.hasMobileSupport === 'boolean' ?
-            data.hasMobileSupport : false;
-        Object.freeze(this.require);
-        Object.freeze(this.preload);
-        this.match = data.match;
-        this.flags = new _flaghandler_class__WEBPACK_IMPORTED_MODULE_4__[/* FlagHandler */ "a"](data.flags instanceof Array ?
-            data.flags : []);
-        this.runat = data.runat;
-        if (!(this.match instanceof Array) || this.match.length === 0)
-            throw 'URL matches must be a non-empty array';
-        this.match.forEach((match, i) => {
-            if (typeof match === 'string') {
-                ('-._~:/?#[]@!$&\'()+,;=').split('').forEach(c => {
-                    match = match.replace(c, '\\' + c);
-                });
-                this.match[i] = new RegExp('^' + match.replace('*', '.*') + '$');
-            }
-            else if (!(match instanceof RegExp)) {
-                throw 'Url match must be either a string or a RegExp';
-            }
-        });
-        Object.freeze(this.match);
-        this.onload = data.onload instanceof Function ?
-            data.onload : () => { };
-        this.onunload = data.onunload instanceof Function ?
-            data.onunload : () => { };
-        this.loaded = false;
-        if (!Object.keys(GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_6__[/* GLOBAL_ENTRY_NAME */ "a"])).includes(this.moduleName)) {
-            let gentry = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_6__[/* GLOBAL_ENTRY_NAME */ "a"]);
-            gentry[this.moduleName] = {};
-            GM_setValue(_definitions__WEBPACK_IMPORTED_MODULE_6__[/* GLOBAL_ENTRY_NAME */ "a"], gentry);
-        }
-    }
-    load(loadConfig = true) {
-        let self = this;
-        if (loadConfig)
-            this.config.loadSavedConfig();
-        let canExecute = this.require.every(requiredModule => {
-            let reqModule = _modulehandler_class__WEBPACK_IMPORTED_MODULE_5__[/* ModuleHandler */ "a"].get(requiredModule);
-            if (!reqModule.loaded) {
-                self.debug.error(`Required module "${requiredModule}" not loaded or enabled`);
-            }
-            return reqModule.loaded;
-        });
-        if (!self.loaded && self.config.get('ENABLED') && canExecute) {
-            canExecute = !self.match.every(match => !match.test(location.pathname + location.search));
-            if (canExecute) {
-                let preloadMap = this.preload.map(src => {
-                    return new Promise(function (resolve) {
-                        let script = $('<script>');
-                        $('html > head').append(script);
-                        script[0].onload = function () {
-                            resolve();
-                        };
-                        script.attr('src', src);
-                    });
-                });
-                Promise.all(preloadMap).then(function () {
-                    if (document.readyState === "loading" && self.runat === 'load') {
-                        window.addEventListener('DOMContentLoaded', function () {
-                            self.onload();
-                        });
-                    }
-                    else {
-                        self.onload();
-                    }
-                });
-                this.loaded = true;
-            }
-        }
-        return canExecute;
-    }
-    unload() {
-        if (this.loaded) {
-            this.onunload();
-            this.loaded = false;
-        }
-    }
-}
-
-
-/***/ }),
 /* 5 */
 /***/ (function(module, exports) {
 
@@ -1023,7 +991,7 @@ if (typeof Object.create === 'function') {
 /* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Buffer = __webpack_require__(3).Buffer
+var Buffer = __webpack_require__(4).Buffer
 
 // prototype class for hash functions
 function Hash (blockSize, finalSize) {
@@ -1107,35 +1075,148 @@ module.exports = Hash
 
 
 /***/ }),
-/* 7 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
+/* 7 */,
+/* 8 */
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return FlagHandler; });
-class FlagHandler {
-    constructor(flag_arr) {
-        this.__flags = new Set(flag_arr);
-    }
-    isset(...flags) {
-        return flags.every(f => this.__flags.has(f));
-    }
-    unset(...flags) {
-        flags.forEach(f => this.__flags.delete(f));
-    }
-    set(...flags) {
-        flags.forEach(f => this.__flags.add(f));
-    }
-    flags() {
-        return Array.from(this.__flags.keys());
-    }
-    clear() {
-        this.__flags.clear();
-    }
-}
+/* WEBPACK VAR INJECTION */(function(process) {
+const ansiEscapes = module.exports;
+// TODO: remove this in the next major version
+module.exports.default = ansiEscapes;
 
+const ESC = '\u001B[';
+const OSC = '\u001B]';
+const BEL = '\u0007';
+const SEP = ';';
+const isTerminalApp = process.env.TERM_PROGRAM === 'Apple_Terminal';
+
+ansiEscapes.cursorTo = (x, y) => {
+	if (typeof x !== 'number') {
+		throw new TypeError('The `x` argument is required');
+	}
+
+	if (typeof y !== 'number') {
+		return ESC + (x + 1) + 'G';
+	}
+
+	return ESC + (y + 1) + ';' + (x + 1) + 'H';
+};
+
+ansiEscapes.cursorMove = (x, y) => {
+	if (typeof x !== 'number') {
+		throw new TypeError('The `x` argument is required');
+	}
+
+	let ret = '';
+
+	if (x < 0) {
+		ret += ESC + (-x) + 'D';
+	} else if (x > 0) {
+		ret += ESC + x + 'C';
+	}
+
+	if (y < 0) {
+		ret += ESC + (-y) + 'A';
+	} else if (y > 0) {
+		ret += ESC + y + 'B';
+	}
+
+	return ret;
+};
+
+ansiEscapes.cursorUp = (count = 1) => ESC + count + 'A';
+ansiEscapes.cursorDown = (count = 1) => ESC + count + 'B';
+ansiEscapes.cursorForward = (count = 1) => ESC + count + 'C';
+ansiEscapes.cursorBackward = (count = 1) => ESC + count + 'D';
+
+ansiEscapes.cursorLeft = ESC + 'G';
+ansiEscapes.cursorSavePosition = isTerminalApp ? '\u001B7' : ESC + 's';
+ansiEscapes.cursorRestorePosition = isTerminalApp ? '\u001B8' : ESC + 'u';
+ansiEscapes.cursorGetPosition = ESC + '6n';
+ansiEscapes.cursorNextLine = ESC + 'E';
+ansiEscapes.cursorPrevLine = ESC + 'F';
+ansiEscapes.cursorHide = ESC + '?25l';
+ansiEscapes.cursorShow = ESC + '?25h';
+
+ansiEscapes.eraseLines = count => {
+	let clear = '';
+
+	for (let i = 0; i < count; i++) {
+		clear += ansiEscapes.eraseLine + (i < count - 1 ? ansiEscapes.cursorUp() : '');
+	}
+
+	if (count) {
+		clear += ansiEscapes.cursorLeft;
+	}
+
+	return clear;
+};
+
+ansiEscapes.eraseEndLine = ESC + 'K';
+ansiEscapes.eraseStartLine = ESC + '1K';
+ansiEscapes.eraseLine = ESC + '2K';
+ansiEscapes.eraseDown = ESC + 'J';
+ansiEscapes.eraseUp = ESC + '1J';
+ansiEscapes.eraseScreen = ESC + '2J';
+ansiEscapes.scrollUp = ESC + 'S';
+ansiEscapes.scrollDown = ESC + 'T';
+
+ansiEscapes.clearScreen = '\u001Bc';
+
+ansiEscapes.clearTerminal = process.platform === 'win32' ?
+	`${ansiEscapes.eraseScreen}${ESC}0f` :
+	// 1. Erases the screen (Only done in case `2` is not supported)
+	// 2. Erases the whole screen including scrollback buffer
+	// 3. Moves cursor to the top-left position
+	// More info: https://www.real-world-systems.com/docs/ANSIcode.html
+	`${ansiEscapes.eraseScreen}${ESC}3J${ESC}H`;
+
+ansiEscapes.beep = BEL;
+
+ansiEscapes.link = (text, url) => {
+	return [
+		OSC,
+		'8',
+		SEP,
+		SEP,
+		url,
+		BEL,
+		text,
+		OSC,
+		'8',
+		SEP,
+		SEP,
+		BEL
+	].join('');
+};
+
+ansiEscapes.image = (buffer, options = {}) => {
+	let ret = `${OSC}1337;File=inline=1`;
+
+	if (options.width) {
+		ret += `;width=${options.width}`;
+	}
+
+	if (options.height) {
+		ret += `;height=${options.height}`;
+	}
+
+	if (options.preserveAspectRatio === false) {
+		ret += ';preserveAspectRatio=0';
+	}
+
+	return ret + ':' + buffer.toString('base64') + BEL;
+};
+
+ansiEscapes.iTerm = {
+	setCwd: (cwd = process.cwd()) => `${OSC}50;CurrentDir=${cwd}${BEL}`
+};
+
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(27)))
 
 /***/ }),
-/* 8 */
+/* 9 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1500,7 +1581,6 @@ class _Utils {
             ]);
         }
         catch (e) {
-            console.log(e);
             mentions = [];
         }
         $('div.smallfont ~ table').toArray().map(el => {
@@ -1552,179 +1632,78 @@ const Utils = new _Utils();
 
 
 /***/ }),
-/* 9 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return Debug; });
-class Debug {
-    constructor(module) {
-        this.hostModule = module;
-    }
-    log(...args) {
-        if (this.hostModule.config.get('DEBUG_MODE') !== true)
-            return void 0;
-        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-            args = [`[${this.hostModule.moduleName}]`, ...args];
-        console.log(...args);
-    }
-    info(...args) {
-        if (this.hostModule.config.get('DEBUG_MODE') !== true)
-            return void 0;
-        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-            args = [`[${this.hostModule.moduleName}]`, ...args];
-        console.info(...args);
-    }
-    warn(...args) {
-        if (this.hostModule.config.get('DEBUG_MODE') !== true)
-            return void 0;
-        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-            args = [`[${this.hostModule.moduleName}]`, ...args];
-        console.warn(...args);
-    }
-    error(...args) {
-        if (this.hostModule.config.get('DEBUG_MODE') !== true)
-            return void 0;
-        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-            args = [`[${this.hostModule.moduleName}]`, ...args];
-        console.error(...args);
-    }
-    alert(arg) {
-        if (this.hostModule.config.get('DEBUG_MODE') !== true)
-            return void 0;
-        if (this.hostModule.config.get('DEBUG_MODULE_NAME') === true)
-            arg = `[${this.hostModule.moduleName}] ${arg}`;
-        alert(arg);
-    }
-}
-
-
-/***/ }),
 /* 10 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return LocalStorage; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return ResourceHandler; });
 /* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(0);
 
-class LocalStorage {
-    constructor(moduleReference) {
-        this.module = moduleReference;
-    }
-    has(key) {
-        let globalObject = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_0__[/* GLOBAL_ENTRY_NAME */ "a"]);
-        return globalObject[this.module.moduleName].hasOwnProperty(key);
-    }
-    get(key) {
-        let globalObject = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_0__[/* GLOBAL_ENTRY_NAME */ "a"]);
-        return globalObject[this.module.moduleName][key];
-    }
-    set(key, value) {
-        let globalObject = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_0__[/* GLOBAL_ENTRY_NAME */ "a"]);
-        globalObject[this.module.moduleName][key] = value;
-        GM_setValue(_definitions__WEBPACK_IMPORTED_MODULE_0__[/* GLOBAL_ENTRY_NAME */ "a"], globalObject);
-    }
-}
-
-
-/***/ }),
-/* 11 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return CSSHandler; });
-class CSSHandler {
-    constructor(module) {
-        this.styleSheet = null;
-        this.styleElement = null;
-        this.todoPool = [];
-        this.moduleHost = module;
-        this.styleElement = document.createElement('style');
-        this.styleElement.setAttribute('isVirtual', 'true');
-        this.styleElement.setAttribute('moduleHost', this.moduleHost.moduleName);
-        const appendChildAndApplyRules = function () {
-            document.head.appendChild(this.styleElement);
-            this.styleSheet = this.styleElement.sheet;
-            this.todoPool.forEach((rule) => this.set(rule.selector, rule.cssText));
-        }.bind(this);
-        if (document.readyState !== 'complete') {
-            window.addEventListener('load', appendChildAndApplyRules);
+class ResourceHandler {
+    static parseUrl(link) {
+        let url = null;
+        if (link[0] === '#')
+            return null;
+        try {
+            const priorizate = link[0] === '!';
+            if (priorizate)
+                link = link.slice(1);
+            url = new URL(link);
+            const protocol = url.protocol;
+            const pathname = url.pathname.replace('//', '/');
+            url.protocol = 'https:';
+            url.pathname = pathname;
+            switch (protocol) {
+                case 'rgh:':
+                    url.hostname = 'raw.githubusercontent.com';
+                    break;
+            }
         }
-        else {
-            appendChildAndApplyRules();
+        catch (err) {
+            url = null;
         }
+        return url;
     }
-    pretifySelector(selector) {
-        const length = this.styleSheet.cssRules.length;
-        this.styleSheet.addRule(selector, '');
-        selector = this.styleSheet.cssRules[length].selectorText;
-        this.styleSheet.removeRule(length);
-        return selector;
+    static async unpackJSONlinks(resources) {
+        return Promise.all(resources.map((link, index) => new Promise(function (resolve) {
+            let url = ResourceHandler.parseUrl(link);
+            if (url === null)
+                return resolve(null);
+            if (!url.pathname.endsWith('.json'))
+                return resolve([url.href, index]);
+            fetch(url.toString(), _definitions__WEBPACK_IMPORTED_MODULE_0__[/* NO_CACHE_HEADERS */ "b"]).then((response) => response.json()).then((parsed) => resolve([parsed, index])).catch(() => resolve(null));
+        })));
     }
-    objectToCSS(cssObject) {
-        let css = Object.keys(cssObject)
-            .map(key => `${key}: ${cssObject[key]};`).join('');
-        return css;
-    }
-    ;
-    CSSToObject(css) {
-        const obj = {};
-        css.split('{').slice(-1)[0].split('}')[0]
-            .trim().split(';').forEach(rule => {
-            let [key, value] = rule.split(':');
-            if (key !== undefined && value !== undefined)
-                obj[key.trim()] = value.trim();
+    static async sortResources(resources) {
+        resources = resources.filter(r => r !== null);
+        const resourcesWithoutIndex = resources.sort(([{}, url_a_index], [{}, url_b_index]) => url_a_index - url_b_index).map(r => r[0]).flat();
+        return Array.from(new Set(resourcesWithoutIndex)).map((res, i) => {
+            return [res, i];
         });
-        return obj;
     }
-    get(selector) {
-        if (this.styleSheet !== null) {
-            let i = null;
-            selector = selector.trim();
-            let result = Array.from(this.styleSheet.rules)
-                .filter((rule, ri) => {
-                i = i === null ? ri : i;
-                return rule.selectorText === selector;
+    static async getSourceCode(resources) {
+        return Promise.all(resources.map(([link, resourceIndex]) => {
+            return new Promise(function (resolve) {
+                let url = ResourceHandler.parseUrl(link);
+                if (url === null)
+                    return resolve(false);
+                if (!url.pathname.endsWith('.js'))
+                    return resolve(false);
+                return fetch(url.toString(), _definitions__WEBPACK_IMPORTED_MODULE_0__[/* NO_CACHE_HEADERS */ "b"]).then(response => response.text()).then(scriptSource => resolve([scriptSource, resourceIndex])).catch((err) => {
+                    this.MODULE.debug.error(url.href, err);
+                    resolve(false);
+                });
             });
-            if (result.length > 0) {
-                result = result[0];
-                result.index = i;
-            }
-            else {
-                result = {
-                    index: -1
-                };
-            }
-            return result;
-        }
-    }
-    set(selector, cssRules) {
-        if (typeof cssRules === 'string')
-            cssRules = this.CSSToObject(cssRules);
-        if (this.styleSheet !== null) {
-            selector = this.pretifySelector(selector);
-            const cssRule = this.get(selector);
-            let currentCssObj = {};
-            if (cssRule.index > -1) {
-                currentCssObj = this.CSSToObject(cssRule.cssText);
-                this.styleSheet.removeRule(cssRule.index);
-            }
-            Object.assign(currentCssObj, cssRules);
-            this.styleSheet.addRule(selector, this.objectToCSS(currentCssObj));
-        }
-        else {
-            this.todoPool.push({
-                selector: selector,
-                cssText: cssRules
-            });
-        }
-        return this;
+        }));
     }
 }
 
 
 /***/ }),
-/* 12 */
+/* 11 */,
+/* 12 */,
+/* 13 */,
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -1737,7 +1716,7 @@ class CSSHandler {
 
 var inherits = __webpack_require__(5)
 var Hash = __webpack_require__(6)
-var Buffer = __webpack_require__(3).Buffer
+var Buffer = __webpack_require__(4).Buffer
 
 var K = [
   0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5,
@@ -1865,12 +1844,12 @@ module.exports = Sha256
 
 
 /***/ }),
-/* 13 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var inherits = __webpack_require__(5)
 var Hash = __webpack_require__(6)
-var Buffer = __webpack_require__(3).Buffer
+var Buffer = __webpack_require__(4).Buffer
 
 var K = [
   0x428a2f98, 0xd728ae22, 0x71374491, 0x23ef65cd,
@@ -2131,7 +2110,7 @@ module.exports = Sha512
 
 
 /***/ }),
-/* 14 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var exports = module.exports = function SHA (algorithm) {
@@ -2143,16 +2122,16 @@ var exports = module.exports = function SHA (algorithm) {
   return new Algorithm()
 }
 
-exports.sha = __webpack_require__(16)
-exports.sha1 = __webpack_require__(22)
-exports.sha224 = __webpack_require__(23)
-exports.sha256 = __webpack_require__(12)
-exports.sha384 = __webpack_require__(24)
-exports.sha512 = __webpack_require__(13)
+exports.sha = __webpack_require__(18)
+exports.sha1 = __webpack_require__(24)
+exports.sha224 = __webpack_require__(25)
+exports.sha256 = __webpack_require__(14)
+exports.sha384 = __webpack_require__(26)
+exports.sha512 = __webpack_require__(15)
 
 
 /***/ }),
-/* 15 */
+/* 17 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -2169,6 +2148,7 @@ Urls.quote = 'https://www.forocoches.com/foro/newreply.php?do=newreply&p=';
 Urls.newPost = 'https://www.forocoches.com/foro/newreply.php?do=postreply&t=';
 Urls.private = 'https://www.forocoches.com/foro/private.php';
 Urls.ignoreList = 'https://www.forocoches.com/foro/profile.php?do=ignorelist';
+Urls.profile = 'https://www.forocoches.com/foro/profile.php';
 Urls.usercp = 'https://www.forocoches.com/foro/usercp.php?';
 Urls.usersearch = 'https://www.forocoches.com/foro/ajax.php?do=usersearch';
 Urls.onlineusers = 'https://www.forocoches.com/foro/online.php';
@@ -2290,7 +2270,8 @@ class user_User extends Dynamic {
                     tempData['Intereses'] : null;
                 this.about.occupation = tempData.hasOwnProperty('Ocupacion') ?
                     tempData['Ocupacion'] : null;
-                this.about.signature = html.querySelector('#signature').innerHTML.trim();
+                this.about.signature = html.querySelector('#signature')
+                    .innerHTML.trim();
             }
             this.__loading = false;
             return this;
@@ -2308,7 +2289,21 @@ class BasicUser {
         this.nickname = nickname.trim();
     }
     getUser(update = true) {
-        new user_User(this.id, update);
+        return new user_User(this.id, update);
+    }
+    static fromHTML(html) {
+        let id, nickname;
+        if (html.hasAttribute('userid')) {
+            id = parseInt(html.getAttribute('userid'));
+        }
+        else if (html.hasAttribute('href')) {
+            id = parseInt(html.getAttribute('href').split('=')[1]);
+        }
+        else {
+            throw new Error('HTML tag is not valid');
+        }
+        nickname = html.innerText;
+        return new BasicUser(id, nickname);
     }
 }
 class user_CurrentUser extends user_User {
@@ -2321,7 +2316,33 @@ class user_CurrentUser extends user_User {
         })();
     }
     async getIgnoredUsersList() {
-        return fetch(`${Urls.ignoreList}`);
+        return fetch(Urls.ignoreList)
+            .then(utils_Utils.responseToHtml)
+            .then((html) => {
+            const ignoredUserTagList = html.querySelectorAll('.userlist [href*="member.php?u="]');
+            return Array.from(ignoredUserTagList).map(tag => BasicUser.fromHTML(tag));
+        });
+    }
+    async ignoreUsers(userIds) {
+        if (typeof userIds === 'number')
+            userIds = [userIds];
+        const currentIgnoredUsers = await this.getIgnoredUsersList();
+        const updateForm = new FormData();
+        updateForm.set('s', '');
+        updateForm.set('securitytoken', await utils_Utils.getSecurityToken());
+        currentIgnoredUsers.forEach((user => {
+            const id = user.id;
+            updateForm.set(`listbits[ignore][${id}]`, id.toString());
+            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
+        }));
+        userIds.forEach((id) => {
+            updateForm.set(`listbits[ignore][${id}]`, id.toString());
+            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
+        });
+        return fetch(`${Urls.profile}?do=updatelist&userlist=ignore`, {
+            method: 'POST',
+            body: updateForm
+        });
     }
 }
 
@@ -2406,6 +2427,9 @@ class utils_Utils {
             return utils_Utils.__userid__;
         });
     }
+    static getCurrentUser() {
+        return new user_CurrentUser();
+    }
     static async getSecurityToken() {
         const TOKEN = window.SECURITYTOKEN;
         if (typeof TOKEN === 'string') {
@@ -2431,9 +2455,7 @@ class utils_Utils {
             .then(xml => {
             const userTags = Array.from(xml.querySelectorAll('user'));
             return userTags.map((userTag) => {
-                const id = parseInt(userTag.getAttribute('userid'));
-                const nickname = userTag.innerText;
-                return new BasicUser(id, nickname);
+                return BasicUser.fromHTML(userTag);
             });
         });
     }
@@ -2519,7 +2541,7 @@ class thread_Thread extends Dynamic {
         else {
             if (this.authorId === null) {
                 this.authorId = parseInt(html.querySelector('.bigusername').getAttribute('href').split('=')[1]);
-                this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar >[href*="forumdisplay.php?f="]')
+                this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar > [href*="forumdisplay.php?f="]')
                     .getAttribute('href').split('=')[1]);
                 this.creationDate = utils_Utils.parseFCDate(html.querySelector('[id*="post"] td.thead').innerText);
             }
@@ -2587,7 +2609,6 @@ class thread_Thread extends Dynamic {
         })();
         const pageNumbers = Array.from(numbersByPage.keys());
         const pagesRequests = Array.from(numbersByPage.keys()).map(pageNumber => {
-            console.log('Requesting page', pageNumber);
             return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${thread_Thread.MAX_POSTS_PER_PAGE}`)
                 .then(utils_Utils.responseToHtml);
         });
@@ -2656,7 +2677,7 @@ api_FC.Utils = utils_Utils;
 
 
 /***/ }),
-/* 16 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /*
@@ -2669,7 +2690,7 @@ api_FC.Utils = utils_Utils;
 
 var inherits = __webpack_require__(5)
 var Hash = __webpack_require__(6)
-var Buffer = __webpack_require__(3).Buffer
+var Buffer = __webpack_require__(4).Buffer
 
 var K = [
   0x5a827999, 0x6ed9eba1, 0x8f1bbcdc | 0, 0xca62c1d6 | 0
@@ -2756,7 +2777,7 @@ module.exports = Sha
 
 
 /***/ }),
-/* 17 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2770,9 +2791,9 @@ module.exports = Sha
 
 
 
-var base64 = __webpack_require__(19)
-var ieee754 = __webpack_require__(20)
-var isArray = __webpack_require__(21)
+var base64 = __webpack_require__(21)
+var ieee754 = __webpack_require__(22)
+var isArray = __webpack_require__(23)
 
 exports.Buffer = Buffer
 exports.SlowBuffer = SlowBuffer
@@ -4550,10 +4571,10 @@ function isnan (val) {
   return val !== val // eslint-disable-line no-self-compare
 }
 
-/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(18)))
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(20)))
 
 /***/ }),
-/* 18 */
+/* 20 */
 /***/ (function(module, exports) {
 
 var g;
@@ -4579,7 +4600,7 @@ module.exports = g;
 
 
 /***/ }),
-/* 19 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4737,7 +4758,7 @@ function fromByteArray (uint8) {
 
 
 /***/ }),
-/* 20 */
+/* 22 */
 /***/ (function(module, exports) {
 
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
@@ -4827,7 +4848,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 
 
 /***/ }),
-/* 21 */
+/* 23 */
 /***/ (function(module, exports) {
 
 var toString = {}.toString;
@@ -4838,7 +4859,7 @@ module.exports = Array.isArray || function (arr) {
 
 
 /***/ }),
-/* 22 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /*
@@ -4852,7 +4873,7 @@ module.exports = Array.isArray || function (arr) {
 
 var inherits = __webpack_require__(5)
 var Hash = __webpack_require__(6)
-var Buffer = __webpack_require__(3).Buffer
+var Buffer = __webpack_require__(4).Buffer
 
 var K = [
   0x5a827999, 0x6ed9eba1, 0x8f1bbcdc | 0, 0xca62c1d6 | 0
@@ -4943,7 +4964,7 @@ module.exports = Sha1
 
 
 /***/ }),
-/* 23 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -4955,9 +4976,9 @@ module.exports = Sha1
  */
 
 var inherits = __webpack_require__(5)
-var Sha256 = __webpack_require__(12)
+var Sha256 = __webpack_require__(14)
 var Hash = __webpack_require__(6)
-var Buffer = __webpack_require__(3).Buffer
+var Buffer = __webpack_require__(4).Buffer
 
 var W = new Array(64)
 
@@ -5002,13 +5023,13 @@ module.exports = Sha224
 
 
 /***/ }),
-/* 24 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var inherits = __webpack_require__(5)
-var SHA512 = __webpack_require__(13)
+var SHA512 = __webpack_require__(15)
 var Hash = __webpack_require__(6)
-var Buffer = __webpack_require__(3).Buffer
+var Buffer = __webpack_require__(4).Buffer
 
 var W = new Array(160)
 
@@ -5065,40 +5086,613 @@ module.exports = Sha384
 
 
 /***/ }),
-/* 25 */
+/* 27 */
+/***/ (function(module, exports) {
+
+// shim for using process in browser
+var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
+var queue = [];
+var draining = false;
+var currentQueue;
+var queueIndex = -1;
+
+function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
+    draining = false;
+    if (currentQueue.length) {
+        queue = currentQueue.concat(queue);
+    } else {
+        queueIndex = -1;
+    }
+    if (queue.length) {
+        drainQueue();
+    }
+}
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    var timeout = runTimeout(cleanUpNextTick);
+    draining = true;
+
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        while (++queueIndex < len) {
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
+        }
+        queueIndex = -1;
+        len = queue.length;
+    }
+    currentQueue = null;
+    draining = false;
+    runClearTimeout(timeout);
+}
+
+process.nextTick = function (fun) {
+    var args = new Array(arguments.length - 1);
+    if (arguments.length > 1) {
+        for (var i = 1; i < arguments.length; i++) {
+            args[i - 1] = arguments[i];
+        }
+    }
+    queue.push(new Item(fun, args));
+    if (queue.length === 1 && !draining) {
+        runTimeout(drainQueue);
+    }
+};
+
+// v8 likes predictible objects
+function Item(fun, array) {
+    this.fun = fun;
+    this.array = array;
+}
+Item.prototype.run = function () {
+    this.fun.apply(null, this.array);
+};
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+process.prependListener = noop;
+process.prependOnceListener = noop;
+
+process.listeners = function (name) { return [] }
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+
+/***/ }),
+/* 28 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 
-// EXTERNAL MODULE: ./out/fc-module-handler/modulehandler.class.js
-var modulehandler_class = __webpack_require__(1);
-
 // EXTERNAL MODULE: ./out/fc-module-handler/definitions.js
 var definitions = __webpack_require__(0);
 
+// EXTERNAL MODULE: ./out/fc-module-handler/module-handler/index.js
+var module_handler = __webpack_require__(1);
+
+// EXTERNAL MODULE: ./out/fc-module-handler/module/index.js + 9 modules
+var fc_module_handler_module = __webpack_require__(2);
+
 // EXTERNAL MODULE: ./out/fc-module-handler/utils.js
-var utils = __webpack_require__(8);
+var utils = __webpack_require__(9);
 
-// EXTERNAL MODULE: ./out/fc-module-handler/module.class.js
-var module_class = __webpack_require__(4);
-
-// EXTERNAL MODULE: ./out/fc-module-handler/config.class.js
-var config_class = __webpack_require__(2);
-
-// CONCATENATED MODULE: ./out/fc-module-handler/controlpanel.module.js
-
-
-
-
-
-const $ = jQuery;
-const GEAR_URL = 'https://cdnjs.cloudflare.com/ajax/libs/octicons/8.3.0/svg/gear.svg';
-const GEAR_IMAGE_TAG = `<i class="material-icons config-button" height="16px">settings</i>`;
+// CONCATENATED MODULE: ./out/fc-module-handler/control-panel/constants.js
+const SETTINGS_BUTTON_TAG = `<i class="material-icons config-button">settings</i>`;
+const TERMINAL_BUTTON_TAG = `<i class="material-icons config-button" style="margin-right: 40px;">code</i>`;
 const RESET_BUTTON_TAG = `<span class="reset-button" title="Reset value"></span>`;
-let moduleListTable = '<table class="module_menu"><tr class="title"><td>Name</td><td>Version</td><td>Enabled</td></tr></table>';
+const moduleListTable = '<table class="module_menu"><tr class="title"><td>Name</td><td>Version</td><td>Enabled</td></tr></table>';
 const backButton = '<span class="swal2-close backbutton"></span>';
-const MODULE = new module_class["a" /* Module */]({
+
+// EXTERNAL MODULE: ./node_modules/ansi-escapes/index.js
+var ansi_escapes = __webpack_require__(8);
+
+// CONCATENATED MODULE: ./out/dev-terminal/command.js
+class Command {
+    constructor(binary, description, callback) {
+        this.binary = binary;
+        this.callback = callback;
+        this.description = description;
+    }
+}
+class CommandList {
+    constructor() {
+        this.commandList = new Map();
+    }
+    declare(command) {
+        this.commandList.set(command.binary, command);
+        return this;
+    }
+    declareMultiple(commands) {
+        commands.forEach(command => this.declare(command));
+        return this;
+    }
+    getCommandList() {
+        return Array.from(this.commandList.keys());
+    }
+    has(binary) {
+        return this.commandList.has(binary);
+    }
+    get(binary) {
+        return this.commandList.get(binary);
+    }
+}
+
+// CONCATENATED MODULE: ./out/dev-terminal/terminal.js
+
+
+var ParseType;
+(function (ParseType) {
+    ParseType[ParseType["COMMAND"] = 0] = "COMMAND";
+    ParseType[ParseType["JAVASCRIPT"] = 1] = "JAVASCRIPT";
+})(ParseType || (ParseType = {}));
+;
+function charIsPrintable(keycode) {
+    const valid = (keycode > 47 && keycode < 58) ||
+        keycode == 32 || keycode == 13 ||
+        (keycode > 64 && keycode < 91) ||
+        (keycode > 95 && keycode < 112) ||
+        (keycode > 185 && keycode < 193) ||
+        (keycode > 218 && keycode < 223);
+    return valid;
+}
+const PROMPT_LENGTH = 2;
+const commandList = new CommandList();
+commandList.declareMultiple([
+    new Command('help', 'Shows this help', function (...args) {
+        if (args.length === 0) {
+            commandList.getCommandList().forEach(binary => this.terminal.writeln(`${binary}: ${commandList.get(binary).description}`));
+        }
+        else {
+            if (commandList.has(args[0])) {
+                this.terminal.writeln(`${args[0]} ${commandList.get(args[0]).description}`);
+            }
+            else {
+                this.terminal.writeln(`${args[0]} not found`);
+            }
+        }
+    }),
+    new Command('clear', 'Clears screen', function () {
+        this.terminal.write(ansi_escapes["clearScreen"]);
+    }),
+    new Command('echo', 'Writes its arguments to screen', function (...args) {
+        this.terminal.writeln(args.join(' '));
+    })
+]);
+class terminal_DevTerminal {
+    constructor(selector) {
+        this.parseType = ParseType.COMMAND;
+        this.commandHistory = [];
+        this.historyIndex = 0;
+        this.selector = selector;
+        this.terminal = new Terminal({
+            cursorBlink: true,
+            cursorStyle: 'bar',
+            convertEol: true
+        });
+    }
+    init(autofocus = true) {
+        if (typeof this.selector === 'string')
+            this.terminal.open(document.querySelector(this.selector));
+        else
+            this.terminal.open(this.selector);
+        this.terminal.writeln('Not implemented yet');
+        this.terminal.on('key', (key, ev) => this.pressedKeysHandler(key, ev));
+        this.terminal.on('paste', function (data) {
+            this.terminal.write(data);
+        });
+        this.prompt();
+        if (autofocus)
+            this.terminal.focus();
+    }
+    prompt() {
+        if (this.parseType === ParseType.COMMAND)
+            this.terminal.write('# ');
+        else if (this.parseType === ParseType.JAVASCRIPT)
+            this.terminal.write('> ');
+    }
+    pressedKeysHandler(key, ev) {
+        const printable = charIsPrintable(ev.keyCode);
+        console.log(ev, key, printable);
+        if (ev.keyCode === 13) {
+            this.terminal.writeln('');
+            const line = this.terminal.buffer
+                .getLine(this.terminal.buffer.cursorY)
+                .translateToString()
+                .slice(PROMPT_LENGTH).trim();
+            this.historyIndex = 0;
+            this.commandHistory.push(line);
+            this.parseCommand(line);
+            this.prompt();
+        }
+        else if (ev.keyCode === 8) {
+            if (this.terminal.buffer.cursorX > PROMPT_LENGTH)
+                this.terminal.write('\b \b');
+        }
+        else if (printable) {
+            this.terminal.write(key);
+        }
+        else {
+            switch (ev.code) {
+                case 'Escape': {
+                    this.terminal.blur();
+                    break;
+                }
+                case 'Home': {
+                    this.terminal.write(ansi_escapes["cursorTo"](2));
+                    break;
+                }
+                case 'End': {
+                    let lineLength = this.terminal.buffer
+                        .getLine(this.terminal.buffer.cursorY)
+                        .translateToString().trim().length;
+                    if (lineLength < PROMPT_LENGTH)
+                        lineLength = PROMPT_LENGTH;
+                    this.terminal.write(ansi_escapes["cursorTo"](lineLength));
+                    break;
+                }
+                case 'ArrowLeft': {
+                    if (this.terminal.buffer.cursorX > PROMPT_LENGTH)
+                        this.terminal.write(ansi_escapes["cursorBackward"]());
+                    break;
+                }
+                case 'ArrowRight': {
+                    const lineLength = this.terminal.buffer
+                        .getLine(this.terminal.buffer.cursorY)
+                        .translateToString().trim().length;
+                    if (this.terminal.buffer.cursorX < lineLength)
+                        this.terminal.write(ansi_escapes["cursorForward"]());
+                    break;
+                }
+            }
+        }
+    }
+    parseCommand(fullCommand) {
+        const commandParts = fullCommand.trim()
+            .split(' ').filter(c => c.length);
+        console.log(commandParts);
+        if (commandParts.length === 0)
+            return;
+        const binary = commandParts[0].toLowerCase();
+        if (commandList.has(binary)) {
+            commandList.get(binary).callback.bind(this)(...commandParts.slice(1));
+        }
+        else {
+            this.terminal.writeln(`Command "${fullCommand}" not found`);
+        }
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/control-panel/panel.js
+
+
+
+class panel_Panel {
+    constructor(module) {
+        this.MODULE = module;
+    }
+    saveConfigDialog(modal) {
+        let moduleName = $(modal).find('#swal2-title')
+            .attr('moduleName');
+        let module = module_handler["a" /* ModuleHandler */].get(moduleName);
+        $(modal).find('tr.section, tr.section+tr').each(({}, tr) => {
+            let tds = $(tr).find('td').toArray();
+            if (tds.length > 2)
+                tds.shift();
+            let key = tds[0].getAttribute('key');
+            const meta = module.config.getMeta(key);
+            if (meta.flags.isset('WIDGET'))
+                return;
+            module.config.set(key, meta.parseHTML($(tds[1])));
+        });
+    }
+    async showModuleConfigDialog(moduleName) {
+        const self = this;
+        let module = module_handler["a" /* ModuleHandler */].get(moduleName);
+        let html = $('<div>');
+        let table = $('<table class="module_menu config_tab"><tr class="title"><td>Section</td><td>Key</td><td>Value</td></tr></table>');
+        let keys = module.config.keys();
+        keys.splice(keys.indexOf('ENABLED'), 1);
+        let sectionsMap = new Map();
+        keys.forEach((key) => {
+            const section = module.config.getMeta(key).section;
+            if (!sectionsMap.has(section))
+                sectionsMap.set(section, []);
+            sectionsMap.get(section)
+                .push(key);
+        });
+        let sectionsArray = (function () {
+            const DEBUG_SECTION_NAME = 'Debug';
+            const DEBUG_SECTION = sectionsMap.get(DEBUG_SECTION_NAME);
+            sectionsMap.delete(DEBUG_SECTION_NAME);
+            let _ = Array.from(sectionsMap.entries());
+            if (self.MODULE.config.get('DEV_MODE'))
+                _.push([DEBUG_SECTION_NAME, DEBUG_SECTION]);
+            return _;
+        })();
+        sectionsArray.forEach(([section, keys]) => {
+            keys.forEach((key, i) => {
+                let metaConfig = module.config.getMeta(key);
+                if (metaConfig !== undefined && (metaConfig.flags.isset('CONFIGURABLE') || metaConfig.flags.isset('WIDGET'))) {
+                    let tr = $(`<tr><td key="${key}"><span ctitle></span><span reset_tag></span></td><td cvalue></td></tr>`);
+                    tr.find(`[ctitle]`).html(metaConfig.title);
+                    if (metaConfig.description !== undefined)
+                        tr.find(`[key="${key}"]`).attr('title', metaConfig.description);
+                    if (!metaConfig.flags.isset('WIDGET'))
+                        tr.find(`[reset_tag]`).html(RESET_BUTTON_TAG);
+                    let htmlElement = metaConfig.getHTML();
+                    $(tr.find('td[cvalue]')[0]).append(htmlElement);
+                    table.append(tr);
+                    if (i === 0) {
+                        tr.addClass('section');
+                        $(tr.find('td')[0])
+                            .before(`<td rowspan="${keys.length}">${section}</td>`);
+                    }
+                }
+            });
+        });
+        html.append(table);
+        let modal = null;
+        return Swal.fire({
+            title: module.info.title,
+            html: html,
+            heightAuto: false,
+            showConfirmButton: true,
+            showCancelButton: true,
+            reverseButtons: true,
+            cancelButtonColor: '#E03A3A',
+            animation: false,
+            customClass: 'with-max-height swal-wide',
+            onOpen: function (_modal) {
+                modal = _modal;
+                modal.focus();
+                $(modal).find('.swal2-title')
+                    .attr('moduleName', moduleName);
+                $(modal).find('.swal2-title')
+                    .append($(`${backButton}`));
+                $(modal).find('.swal2-title').css({
+                    'left': '32px'
+                });
+                $(modal).on('click', '.swal2-close.backbutton', function () {
+                    self.saveConfigDialog(modal);
+                    Swal.close();
+                    self.showModuleListDialog();
+                });
+                module.config.keys().forEach((key) => {
+                    let config = module.config.getMeta(key);
+                    let valueHTML = $(modal).find(`tr:has(td[key="${key}"]) td[cvalue]`)[0];
+                    if (valueHTML === undefined)
+                        return;
+                    config.dispatchEvent('HTMLAppended', valueHTML);
+                    if (!config.flags.isset('WIDGET')) {
+                        let resetButton = $(modal).find(`td[key="${key}"] span.reset-button`)[0];
+                        resetButton.addEventListener('click', function () {
+                            module.config.reset(key, false);
+                            config.dispatchEvent('reset');
+                            let html = $(valueHTML);
+                            html.children().remove();
+                            html.append(module.config.getMeta(key).getHTML());
+                            config.dispatchEvent('HTMLAppended', valueHTML);
+                        });
+                    }
+                });
+            },
+            preConfirm: () => {
+                self.saveConfigDialog(modal);
+            },
+        }).then(result => {
+            if (result.dismiss !== undefined) {
+                module.config.loadSavedConfig();
+                module.config.keys().forEach((key) => module.config.getMeta(key).dispatchEvent('cancel'));
+            }
+        });
+        ;
+    }
+    async showModuleListDialog() {
+        const self = this;
+        let tempTable = $(moduleListTable);
+        const sortedModuleList = module_handler["a" /* ModuleHandler */].keys()
+            .sort((moduleKeyA, moduleKeyB) => {
+            const moduleTitleA = module_handler["a" /* ModuleHandler */].get(moduleKeyA).info.title;
+            const moduleTitleB = module_handler["a" /* ModuleHandler */].get(moduleKeyB).info.title;
+            return moduleTitleA.localeCompare(moduleTitleB);
+        });
+        sortedModuleList.splice(sortedModuleList.indexOf('CONTROL_PANEL'), 1);
+        sortedModuleList.splice(sortedModuleList.indexOf('MODULE_HANDLER'), 1);
+        sortedModuleList.forEach((moduleName) => {
+            let module = module_handler["a" /* ModuleHandler */].get(moduleName);
+            const html = $(`<tr id='${module.name}'>
+					<td><span>${module.info.title}</span></td>
+					<td>${module.info.version}</td>
+					<td></td>
+				</tr>`);
+            $(html.find('td')[2]).append(module.config.getMeta('ENABLED')
+                .getHTML());
+            html.find('td')[0].setAttribute('title', module.info.description);
+            tempTable.append(html);
+        });
+        return Swal.fire({
+            title: 'Config panel',
+            html: tempTable,
+            heightAuto: false,
+            showConfirmButton: false,
+            showCloseButton: true,
+            animation: false,
+            customClass: 'with-max-height',
+            onOpen: (modal) => {
+                modal.focus();
+                const terminalButton = $(TERMINAL_BUTTON_TAG);
+                $(modal).find('.swal2-close')
+                    .before(terminalButton);
+                terminalButton.on('click', () => self.showTerminal());
+                const settingsButton = $(SETTINGS_BUTTON_TAG);
+                $(modal).find('.swal2-close')
+                    .before(settingsButton);
+                settingsButton.on('click', () => this.showModuleConfigDialog('CONTROL_PANEL'));
+                $(modal).find('tr').each(({}, tr) => {
+                    let span = $(tr).find('span')[0];
+                    if (span !== undefined) {
+                        span.addEventListener('click', function () {
+                            self.showModuleConfigDialog(tr.id);
+                        });
+                    }
+                });
+                module_handler["a" /* ModuleHandler */].keys().forEach((moduleName) => {
+                    const td = $($(modal).find(`tr[id="${moduleName}"] td`)[2]);
+                    if (td === undefined)
+                        return;
+                    const module = module_handler["a" /* ModuleHandler */].get(moduleName);
+                    const config = module.config.getMeta('ENABLED');
+                    td.find('input').on('change', function () {
+                        let enabled = config.parseHTML(td);
+                        module.config.set('ENABLED', enabled);
+                    });
+                });
+            }
+        });
+    }
+    async showTerminal() {
+        return Swal.fire({
+            title: 'Config panel',
+            html: '<div id="terminal"></div>',
+            heightAuto: false,
+            showConfirmButton: false,
+            showCloseButton: true,
+            animation: false,
+            customClass: 'with-max-height swal-wide',
+            onOpen: ({}) => {
+                const terminal = new terminal_DevTerminal('#terminal');
+                terminal.init();
+            }
+        });
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-module-handler/control-panel/control-panel-module.js
+
+
+
+
+
+
+const CONTROL_PANEL_MODULE = new fc_module_handler_module["f" /* Module */]({
     moduleName: 'CONTROL_PANEL',
     title: 'Panel de control',
     description: 'Panel de control para administrar módulos',
@@ -5107,18 +5701,19 @@ const MODULE = new module_class["a" /* Module */]({
     runat: 'load',
     match: ['*']
 });
-MODULE.config.getMeta('ENABLED')
+const panel = new panel_Panel(CONTROL_PANEL_MODULE);
+CONTROL_PANEL_MODULE.config.getMeta('ENABLED')
     .flags.unset('CONFIGURABLE');
-MODULE.config.define('TOGGLE_COLOR', {
+CONTROL_PANEL_MODULE.config.define('TOGGLE_COLOR', {
     title: 'Toogle color',
     defaultValue: '#b4d455',
     flags: ['CONFIGURABLE'],
     getter: function () {
-        return config_class["a" /* Config */].HTML.COLOR.GETTER(this.value);
+        return fc_module_handler_module["b" /* Config */].HTML.COLOR.GETTER(this.value);
     },
     parser: function (el) {
-        let value = config_class["a" /* Config */].HTML.COLOR.PARSER(el);
-        MODULE.styles.set('input.toogle:checked+label', {
+        let value = fc_module_handler_module["b" /* Config */].HTML.COLOR.PARSER(el);
+        CONTROL_PANEL_MODULE.styles.set('input.toogle:checked+label', {
             'background-color': value
         });
         return value;
@@ -5126,18 +5721,18 @@ MODULE.config.define('TOGGLE_COLOR', {
     events: {
         HTMLAppended: function ({}, html) {
             $(html).find('input')[0].addEventListener('input', function ({}) {
-                MODULE.styles.set('input.toogle:checked+label', {
+                CONTROL_PANEL_MODULE.styles.set('input.toogle:checked+label', {
                     'background-color': this.value
                 });
             });
         },
         reset: function () {
-            MODULE.styles.set('input.toogle:checked+label', {
+            CONTROL_PANEL_MODULE.styles.set('input.toogle:checked+label', {
                 'background-color': this.defaultValue
             });
         },
         cancel: function () {
-            MODULE.styles.set('input.toogle:checked+label', {
+            CONTROL_PANEL_MODULE.styles.set('input.toogle:checked+label', {
                 'background-color': this.value
             });
         }
@@ -5148,18 +5743,16 @@ MODULE.config.define('TOGGLE_COLOR', {
     defaultValue: false,
     flags: ['CONFIGURABLE'],
     getter: function () {
-        return config_class["a" /* Config */].HTML.SWITCH.GETTER(this.value);
+        return fc_module_handler_module["b" /* Config */].HTML.SWITCH.GETTER(this.value);
     },
     parser: function (el) {
-        return config_class["a" /* Config */].HTML.SWITCH.PARSER(el);
+        return fc_module_handler_module["b" /* Config */].HTML.SWITCH.PARSER(el);
     },
     events: {
         HTMLAppended: function (selfConfig, html) {
-            console.log(2);
             $(html).find('input')[0].addEventListener('input', function ({}) {
-                console.log(1);
                 selfConfig.value = this.checked;
-                showModuleConfigDialog(selfConfig.hostModule.moduleName);
+                panel.showModuleConfigDialog(selfConfig.hostModule.name);
             });
         }
     }
@@ -5169,27 +5762,26 @@ MODULE.config.define('TOGGLE_COLOR', {
     getter: function () {
         let value = this.value.join('\n');
         value += value === '' ? '' : '\n';
-        return config_class["a" /* Config */].HTML.TEXTAREA.GETTER(value, {
+        return fc_module_handler_module["b" /* Config */].HTML.TEXTAREA.GETTER(value, {
             cols: 80,
             rows: 20
         });
     },
     parser: function (el) {
-        return config_class["a" /* Config */].HTML.TEXTAREA.PARSER(el)
+        return fc_module_handler_module["b" /* Config */].HTML.TEXTAREA.PARSER(el)
             .split('\n')
             .map((l) => l.trim())
             .filter((l) => l !== '');
     }
 });
-MODULE.onload = function () {
+CONTROL_PANEL_MODULE.onload = function () {
     if (utils["a" /* Utils */].isMobileVersion) {
-        const gearTag = $(GEAR_IMAGE_TAG);
-        gearTag.attr('height', 24);
+        const gearTag = $(SETTINGS_BUTTON_TAG);
         $('.mobilebuttonslide').before(gearTag);
         gearTag.on('click', function (e) {
             if (!Swal.isVisible()) {
                 e.preventDefault();
-                showModuleListDialog();
+                panel.showModuleListDialog();
             }
         });
     }
@@ -5197,12 +5789,12 @@ MODULE.onload = function () {
         Mousetrap.bind('esc', function (e) {
             if (!Swal.isVisible()) {
                 e.preventDefault();
-                showModuleListDialog();
+                panel.showModuleListDialog();
             }
         });
     }
-    MODULE.styles.set('input.toogle:checked+label', {
-        'background-color': MODULE.config.get('TOGGLE_COLOR')
+    CONTROL_PANEL_MODULE.styles.set('input.toogle:checked+label', {
+        'background-color': CONTROL_PANEL_MODULE.config.get('TOGGLE_COLOR')
     });
     const HASH_BLOCK = definitions["c" /* VERSION_HASH */].slice(0, 8);
     if (!utils["a" /* Utils */].isMobileVersion) {
@@ -5210,182 +5802,9 @@ MODULE.onload = function () {
             .innerText = `Version hash: [${HASH_BLOCK}]`;
     }
 };
-function saveConfigDialog(modal) {
-    let moduleName = $(modal).find('#swal2-title')
-        .attr('moduleName');
-    let module = modulehandler_class["a" /* ModuleHandler */].get(moduleName);
-    $(modal).find('tr.section, tr.section+tr').each(({}, tr) => {
-        let tds = $(tr).find('td').toArray();
-        if (tds.length > 2)
-            tds.shift();
-        let key = tds[0].getAttribute('key');
-        const meta = module.config.getMeta(key);
-        if (meta.flags.isset('WIDGET'))
-            return;
-        module.config.set(key, meta.parseHTML($(tds[1])));
-    });
-}
-async function showModuleConfigDialog(moduleName) {
-    let module = modulehandler_class["a" /* ModuleHandler */].get(moduleName);
-    let html = $('<div>');
-    let table = $('<table class="module_menu config_tab"><tr class="title"><td>Section</td><td>Key</td><td>Value</td></tr></table>');
-    let keys = module.config.keys();
-    keys.splice(keys.indexOf('ENABLED'), 1);
-    let sectionsMap = new Map();
-    keys.forEach((key) => {
-        const section = module.config.getMeta(key).section;
-        if (!sectionsMap.has(section))
-            sectionsMap.set(section, []);
-        sectionsMap.get(section)
-            .push(key);
-    });
-    let sectionsArray = (function () {
-        const DEBUG_SECTION_NAME = 'Debug';
-        const DEBUG_SECTION = sectionsMap.get(DEBUG_SECTION_NAME);
-        sectionsMap.delete(DEBUG_SECTION_NAME);
-        let _ = Array.from(sectionsMap.entries());
-        if (MODULE.config.get('DEV_MODE'))
-            _.push([DEBUG_SECTION_NAME, DEBUG_SECTION]);
-        return _;
-    })();
-    sectionsArray.forEach(([section, keys]) => {
-        keys.forEach((key, i) => {
-            let metaConfig = module.config.getMeta(key);
-            if (metaConfig !== undefined && (metaConfig.flags.isset('CONFIGURABLE') || metaConfig.flags.isset('WIDGET'))) {
-                let tr = $(`<tr><td key="${key}"><span ctitle></span><span reset_tag></span></td><td cvalue></td></tr>`);
-                tr.find(`[ctitle]`).html(metaConfig.title);
-                if (metaConfig.description !== undefined)
-                    tr.find(`[key="${key}"]`).attr('title', metaConfig.description);
-                if (!metaConfig.flags.isset('WIDGET'))
-                    tr.find(`[reset_tag]`).html(RESET_BUTTON_TAG);
-                let htmlElement = metaConfig.getHTML();
-                $(tr.find('td[cvalue]')[0]).append(htmlElement);
-                table.append(tr);
-                if (i === 0) {
-                    tr.addClass('section');
-                    $(tr.find('td')[0])
-                        .before(`<td rowspan="${keys.length}">${section}</td>`);
-                }
-            }
-        });
-    });
-    html.append(table);
-    let modal = null;
-    return Swal.fire({
-        title: module.info.title,
-        html: html,
-        heightAuto: false,
-        showConfirmButton: true,
-        showCancelButton: true,
-        reverseButtons: true,
-        cancelButtonColor: '#E03A3A',
-        animation: false,
-        customClass: 'with-max-height swal-wide',
-        onOpen: function (_modal) {
-            modal = _modal;
-            modal.focus();
-            $(modal).find('.swal2-title')
-                .attr('moduleName', moduleName);
-            $(modal).find('.swal2-title')
-                .append($(`${backButton}`));
-            $(modal).find('.swal2-title').css({
-                'left': '32px'
-            });
-            $(modal).on('click', '.swal2-close.backbutton', function () {
-                saveConfigDialog(modal);
-                Swal.close();
-                showModuleListDialog();
-            });
-            module.config.keys().forEach((key) => {
-                let config = module.config.getMeta(key);
-                let valueHTML = $(modal).find(`tr:has(td[key="${key}"]) td[cvalue]`)[0];
-                if (valueHTML === undefined)
-                    return;
-                config.dispatchEvent('HTMLAppended', valueHTML);
-                if (!config.flags.isset('WIDGET')) {
-                    let resetButton = $(modal).find(`td[key="${key}"] span.reset-button`)[0];
-                    resetButton.addEventListener('click', function () {
-                        module.config.reset(key, false);
-                        config.dispatchEvent('reset');
-                        let html = $(valueHTML);
-                        html.children().remove();
-                        html.append(module.config.getMeta(key).getHTML());
-                        config.dispatchEvent('HTMLAppended', valueHTML);
-                    });
-                }
-            });
-        },
-        preConfirm: () => {
-            saveConfigDialog(modal);
-        },
-    }).then(result => {
-        if (result.dismiss !== undefined) {
-            module.config.loadSavedConfig();
-            module.config.keys().forEach((key) => module.config.getMeta(key).dispatchEvent('cancel'));
-        }
-    });
-    ;
-}
-function showModuleListDialog() {
-    let tempTable = $(moduleListTable);
-    const sortedModuleList = modulehandler_class["a" /* ModuleHandler */].keys()
-        .sort((moduleKeyA, moduleKeyB) => {
-        const moduleTitleA = modulehandler_class["a" /* ModuleHandler */].get(moduleKeyA).info.title;
-        const moduleTitleB = modulehandler_class["a" /* ModuleHandler */].get(moduleKeyB).info.title;
-        return moduleTitleA.localeCompare(moduleTitleB);
-    });
-    sortedModuleList.splice(sortedModuleList.indexOf('CONTROL_PANEL'), 1);
-    sortedModuleList.splice(sortedModuleList.indexOf('MODULE_HANDLER'), 1);
-    sortedModuleList.forEach((moduleName) => {
-        let module = modulehandler_class["a" /* ModuleHandler */].get(moduleName);
-        const html = $(`<tr id='${module.moduleName}'>
-				<td><span>${module.info.title}</span></td>
-				<td>${module.info.version}</td>
-				<td></td>
-			</tr>`);
-        $(html.find('td')[2]).append(module.config.getMeta('ENABLED')
-            .getHTML());
-        html.find('td')[0].setAttribute('title', module.info.description);
-        tempTable.append(html);
-    });
-    return Swal.fire({
-        title: 'Config panel',
-        html: tempTable,
-        heightAuto: false,
-        showConfirmButton: false,
-        showCloseButton: true,
-        animation: false,
-        customClass: 'with-max-height',
-        onOpen: (modal) => {
-            modal.focus();
-            let gearTag = $(GEAR_IMAGE_TAG);
-            gearTag.attr('height', '32px');
-            $(modal).find('.swal2-close')
-                .before(gearTag);
-            gearTag.on('click', () => showModuleConfigDialog('CONTROL_PANEL'));
-            $(modal).find('tr').each(({}, tr) => {
-                let span = $(tr).find('span')[0];
-                if (span !== undefined) {
-                    span.addEventListener('click', function () {
-                        showModuleConfigDialog(tr.id);
-                    });
-                }
-            });
-            modulehandler_class["a" /* ModuleHandler */].keys().forEach((moduleName) => {
-                const td = $($(modal).find(`tr[id="${moduleName}"] td`)[2]);
-                if (td === undefined)
-                    return;
-                const module = modulehandler_class["a" /* ModuleHandler */].get(moduleName);
-                const config = module.config.getMeta('ENABLED');
-                td.find('input').on('change', function () {
-                    let enabled = config.parseHTML(td);
-                    module.config.set('ENABLED', enabled);
-                });
-            });
-        }
-    });
-}
-const CONTROL_PANEL_MODULE = MODULE;
+
+// CONCATENATED MODULE: ./out/fc-module-handler/control-panel/index.js
+
 
 // CONCATENATED MODULE: ./out/fc-module-handler/init.js
 
@@ -5396,8 +5815,189 @@ console.log(`Version hash: ${definitions["c" /* VERSION_HASH */]}`);
 GM_info.script.resources.forEach((resource) => {
     GM_addStyle(resource.content);
 });
-modulehandler_class["a" /* ModuleHandler */].push(CONTROL_PANEL_MODULE);
-modulehandler_class["a" /* ModuleHandler */].loadModules();
+module_handler["a" /* ModuleHandler */].push(CONTROL_PANEL_MODULE);
+module_handler["a" /* ModuleHandler */].loadModules();
+
+
+/***/ }),
+/* 29 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return ModuleHandler; });
+/* harmony import */ var _module__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(9);
+/* harmony import */ var _fc_api_api__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(17);
+/* harmony import */ var _resource_handler__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(10);
+/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(0);
+
+
+
+
+
+
+const MODULE = new _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"]({
+    moduleName: 'MODULE_HANDLER',
+    title: 'Module handler',
+    author: 'pytness',
+    version: '1.1',
+    match: ['*']
+});
+MODULE.config.getMeta('ENABLED')
+    .flags.unset('CONFIGURABLE');
+MODULE.config.define('LAST_VERSION_HASH', {
+    defaultValue: false,
+}).define('RESOURCES', {
+    title: 'User resources',
+    defaultValue: [
+        'rgh:Pytness/fc-modules/master/modules/defaultSources.json'
+    ],
+    flags: ['CONFIGURABLE'],
+    getter: function () {
+        let value = this.value.join('\n');
+        if (value.length > 0)
+            value += '\n';
+        return _module__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "b"].HTML.TEXTAREA.GETTER(value, {
+            cols: 80,
+            rows: 20
+        });
+    },
+    parser: function (el) {
+        return _module__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "b"].HTML.TEXTAREA.PARSER(el)
+            .split('\n')
+            .map((l) => l.trim())
+            .filter((l) => l !== '');
+    }
+});
+MODULE.config.getMeta('ENABLED')
+    .flags.unset('CONFIGURABLE');
+MODULE.onload = function () {
+    this.config.set('DEBUG_MODULE_NAME', false);
+    this.config.set('DEBUG_MODE', true);
+    if (_definitions__WEBPACK_IMPORTED_MODULE_4__[/* VERSION_HASH */ "c"] != this.config.get('LAST_VERSION_HASH')) {
+        this.config.set('LAST_VERSION_HASH', _definitions__WEBPACK_IMPORTED_MODULE_4__[/* VERSION_HASH */ "c"]);
+    }
+    ModuleHandler.loadUserResources().then(() => ModuleHandler.loadModules());
+};
+function contextEval(source) {
+    return (function (Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
+        return eval(source);
+    })(_module__WEBPACK_IMPORTED_MODULE_0__[/* Debug */ "c"], _module__WEBPACK_IMPORTED_MODULE_0__[/* LocalStorage */ "e"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "b"], _module__WEBPACK_IMPORTED_MODULE_0__[/* FlagHandler */ "d"], _module__WEBPACK_IMPORTED_MODULE_0__[/* CSSHandler */ "a"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"], _fc_api_api__WEBPACK_IMPORTED_MODULE_2__[/* FC */ "a"], _utils__WEBPACK_IMPORTED_MODULE_1__[/* Utils */ "a"], ModuleHandler, _definitions__WEBPACK_IMPORTED_MODULE_4__[/* GLOBAL_ENTRY_NAME */ "a"], _definitions__WEBPACK_IMPORTED_MODULE_4__[/* VERSION_HASH */ "c"], _definitions__WEBPACK_IMPORTED_MODULE_4__[/* NO_CACHE_HEADERS */ "b"]);
+}
+class ModuleHandler {
+    static has(key) {
+        return ModuleHandler.modules.has(key);
+    }
+    static get(key) {
+        return ModuleHandler.modules.get(key);
+    }
+    static push(module) {
+        if (!(module instanceof _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"]))
+            throw 'Module must be an instance of Module';
+        if (ModuleHandler.modules.has(module.name))
+            throw 'Module already declared';
+        ModuleHandler.modules.set(module.name, module);
+    }
+    static delete(key) {
+        return this.modules.delete(key);
+    }
+    static keys() {
+        return Array.from(this.modules.keys());
+    }
+    static size() {
+        return ModuleHandler.modules.size;
+    }
+    static registerModules() {
+        let regModules = GM_getValue(_definitions__WEBPACK_IMPORTED_MODULE_4__[/* GLOBAL_ENTRY_NAME */ "a"]);
+        ModuleHandler.modules.forEach((module) => {
+            if (!Object.keys(regModules).includes(module.name)) {
+                regModules[module.name] = {};
+            }
+        });
+        GM_setValue(_definitions__WEBPACK_IMPORTED_MODULE_4__[/* GLOBAL_ENTRY_NAME */ "a"], regModules);
+    }
+    static sortModules() {
+        ModuleHandler.modules.forEach((module) => {
+            let moduleName = module.name;
+            module.require.every(requiredModuleName => {
+                if (!ModuleHandler.modules.has(requiredModuleName)) {
+                    throw `Module '${moduleName}' requires '${requiredModuleName}'`;
+                }
+                let requiredModule = ModuleHandler.modules.get(requiredModuleName);
+                if (requiredModule.require.includes(moduleName)) {
+                    throw `Modules '${moduleName}' and '${requiredModuleName}' must not require each other`;
+                }
+            });
+        });
+        let moduleArray = Array.from(ModuleHandler.modules.entries());
+        moduleArray.sort(([_a, MODULE_A], [_b, MODULE_B]) => {
+            if (MODULE_A.require.includes(_b))
+                return 1;
+            if (MODULE_B.require.includes(_a))
+                return -1;
+            return 0;
+        });
+        ModuleHandler.modules.clear();
+        moduleArray.forEach(([key, value]) => {
+            ModuleHandler.modules.set(key, value);
+        });
+    }
+    static async loadUserResources() {
+        let resources = MODULE.config.get('RESOURCES');
+        return _resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].unpackJSONlinks(resources)
+            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].sortResources)
+            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].getSourceCode)
+            .then(scriptSources => {
+            scriptSources.filter(a => a !== false).sort(([_a, ai], [_b, bi]) => ai - bi).forEach(([source, {}]) => {
+                try {
+                    const EVALED_MODULE = contextEval(source);
+                    if (EVALED_MODULE instanceof _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"])
+                        ModuleHandler.push(EVALED_MODULE);
+                }
+                catch (err) {
+                    MODULE.debug.error(err);
+                }
+            });
+        });
+    }
+    static loadModules() {
+        ModuleHandler.registerModules();
+        ModuleHandler.sortModules();
+        ModuleHandler.modules.forEach((module) => {
+            if (module.loaded)
+                return;
+            if (module.load()) {
+                MODULE.debug.log(`Loaded [${module.name}]:` +
+                    `\n\tTitle:   ${module.info.title}` +
+                    `\n\tDesc:    ${module.info.description}` +
+                    `\n\tAuthor:  ${module.info.author}` +
+                    `\n\tVersion: ${module.info.version}`);
+            }
+            else {
+                MODULE.debug.log('Didnt load ', module.name);
+            }
+        });
+    }
+    static unloadModules() {
+        ModuleHandler.modules.forEach(module => {
+            if (!module.loaded)
+                return;
+            module.unload();
+            MODULE.debug.log(`Unloaded [${module.name}]`);
+        });
+    }
+    static reloadModules() {
+        MODULE.debug.log('Reloading modules...');
+        ModuleHandler.modules.forEach(module => {
+            if (!module.loaded)
+                return;
+            module.onunload();
+            module.onload();
+            MODULE.debug.log(`Reloaded [${module.name}]`);
+        });
+    }
+}
+ModuleHandler.modules = new Map([[MODULE.name, MODULE]]);
 
 
 /***/ })

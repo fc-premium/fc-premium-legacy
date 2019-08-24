@@ -1,4 +1,4 @@
-import { Module } from './module.class'
+import { Module } from './module'
 
 interface CSSPair {
 	selector: string;
@@ -8,32 +8,35 @@ interface CSSPair {
 export class CSSHandler {
 
 	private readonly moduleHost: Module;
-	private readonly styleSheet: CSSStyleSheet = null;
 	private readonly styleElement: HTMLStyleElement = null;
+	private get styleSheet(): CSSStyleSheet {
+		return <CSSStyleSheet>this.styleElement.sheet;
+	};
 	private todoPool: Array<CSSPair> = [];
 
-	public constructor(module: Module) {
+	public constructor(moduleName: Module) {
 
-		this.moduleHost = module;
+		this.moduleHost = moduleName;
 
 		this.styleElement = document.createElement('style');
 		this.styleElement.setAttribute('isVirtual', 'true');
-		this.styleElement.setAttribute('moduleHost', this.moduleHost.moduleName);
-
-		const appendChildAndApplyRules = function() {
-			document.head.appendChild(this.styleElement);
-			this.styleSheet = this.styleElement.sheet;
-
-			this.todoPool.forEach((rule: CSSPair) =>
-				this.set(rule.selector, rule.cssText)
-			);
-		}.bind(this);
+		this.styleElement.setAttribute('moduleHost', this.moduleHost.name);
 
 		if (document.readyState !== 'complete') {
-			window.addEventListener('load', appendChildAndApplyRules);
+			window.addEventListener('load', () =>
+				this.appendStyleElementAndApplyRules()
+			);
 		} else {
-			appendChildAndApplyRules();
+			this.appendStyleElementAndApplyRules();
 		}
+	}
+
+	private appendStyleElementAndApplyRules(): void {
+		document.head.appendChild(this.styleElement);
+
+		this.todoPool.forEach((rule: CSSPair) =>
+			this.set(rule.selector, rule.cssText)
+		);
 	}
 
 	private pretifySelector(selector: string): string {
@@ -74,8 +77,6 @@ export class CSSHandler {
 			let i = null;
 
 			selector = selector.trim();
-
-			// let rules = Array.from(this.styleSheet.rules);
 
 			let result: any = Array.from(this.styleSheet.rules)
 				.filter((rule, ri) => {

@@ -463,7 +463,6 @@ class _Utils {
 					el.innerText.trim()
 				]);
 		} catch (e) {
-			console.log(e);
 			mentions = [];
 		}
 

@@ -141,7 +141,8 @@ export class User extends Dynamic {
 					this.about.occupation = tempData.hasOwnProperty('Ocupacion') ?
 						tempData['Ocupacion'] : null
 
-					this.about.signature = (<HTMLElement>html.querySelector('#signature')).innerHTML.trim();
+					this.about.signature = (<HTMLElement>html.querySelector('#signature'))
+						.innerHTML.trim();
 				}
 
 				this.__loading = false;
@@ -152,8 +153,6 @@ export class User extends Dynamic {
 				return this;
 			});
 	}
-
-	// public async
 }
 
 export class BasicUser {
@@ -167,7 +166,23 @@ export class BasicUser {
 	}
 
 	getUser(update: boolean = true) {
-		new User(this.id, update);
+		return new User(this.id, update);
+	}
+
+	static fromHTML(html: HTMLElement) {
+		let id: UserID, nickname: Nickname;
+
+		if (html.hasAttribute('userid')) {
+			id = parseInt(html.getAttribute('userid'));
+		} else if (html.hasAttribute('href')) {
+			id = parseInt(html.getAttribute('href').split('=')[1]);
+		} else {
+			throw new Error('HTML tag is not valid');
+		}
+
+		nickname = html.innerText;
+
+		return new BasicUser(id, nickname);
 	}
 }
 
@@ -189,6 +204,44 @@ export class CurrentUser extends User {
 	}
 
 	public async getIgnoredUsersList(): Promise<BasicUser[]> {
-		return fetch(`${Urls.ignoreList}`)
+		return fetch(Urls.ignoreList)
+			.then(Utils.responseToHtml)
+			.then((html: HTMLDocument) => {
+				const ignoredUserTagList = html.querySelectorAll<HTMLElement>('.userlist [href*="member.php?u="]');
+
+				return Array.from(ignoredUserTagList).map(tag =>
+					BasicUser.fromHTML(tag)
+				)
+			});
+	}
+
+	public async ignoreUsers(userIds: UserID | UserID[]): Promise<Response> {
+		if (typeof userIds === 'number')
+			userIds = [userIds];
+
+		const currentIgnoredUsers = await this.getIgnoredUsersList();
+
+		const updateForm = new FormData();
+		updateForm.set('s', '');
+		updateForm.set('securitytoken', await Utils.getSecurityToken());
+
+		// Add current ignored users
+		currentIgnoredUsers.forEach((user => {
+			const id: UserID = user.id;
+
+			updateForm.set(`listbits[ignore][${id}]`, id.toString());
+			updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
+		}));
+
+		// Add new ignored users
+		userIds.forEach((id: UserID) => {
+			updateForm.set(`listbits[ignore][${id}]`, id.toString());
+			updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
+		});
+
+		return fetch(`${Urls.profile}?do=updatelist&userlist=ignore`, {
+			method: 'POST',
+			body: updateForm
+		});
 	}
 }
