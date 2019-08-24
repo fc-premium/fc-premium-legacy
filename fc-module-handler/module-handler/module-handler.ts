@@ -9,11 +9,11 @@ import {
 	CSSHandler
 } from '../module'
 
+import { GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS } from '../definitions'
 import { Utils } from '../utils'
-import { FC } from '../../fc_api/api'
+import { FC } from '../fc_api'
 import { ResourceHandler } from './resource-handler'
 import { Module, ModuleParameters } from '../module'
-import { GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS } from '../definitions'
 
 const MODULE = new Module(<ModuleParameters>{
 	moduleName: 'MODULE_HANDLER',
@@ -138,12 +138,11 @@ export class ModuleHandler {
 
 			let moduleName = module.name;
 
-			module.require.every(requiredModuleName => {
-				if (!ModuleHandler.modules.has(requiredModuleName)) {
+			module.require.every((requiredModuleName: string) => {
+				if (!ModuleHandler.modules.has(requiredModuleName))
 					throw `Module '${moduleName}' requires '${requiredModuleName}'`;
-				}
 
-				let requiredModule = ModuleHandler.modules.get(requiredModuleName);
+				const requiredModule = ModuleHandler.modules.get(requiredModuleName);
 
 				if (requiredModule.require.includes(moduleName)) {
 					throw `Modules '${moduleName}' and '${requiredModuleName}' must not require each other`;
@@ -201,7 +200,6 @@ export class ModuleHandler {
 	public static loadModules(): void {
 
 		ModuleHandler.registerModules();
-
 		ModuleHandler.sortModules();
 
 		ModuleHandler.modules.forEach((module: Module) => {
