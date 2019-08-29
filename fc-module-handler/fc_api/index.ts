@@ -1,8 +1,7 @@
 import { Urls } from './urls'
 import { Utils } from './utils'
-import { User } from './user'
 import { Thread } from './thread'
-import { BasicUser, CurrentUser, Nickname } from './user'
+import { User, BasicUser, CurrentUser, Nickname, UserID } from './user'
 
 export class FC {
 
@@ -48,7 +47,7 @@ export class FC {
 			});
 	}
 
-	static getCurrentUser() {
+	static async getCurrentUser(): Promise<CurrentUser> {
 		return new CurrentUser().get();
 	}
 

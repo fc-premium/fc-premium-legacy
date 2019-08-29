@@ -1,4 +1,4 @@
-/// <reference path="../types/xterm.d.ts" />
+/// <reference path="../../../types/xterm.d.ts" />
 
 import * as AnsiEscapes from 'ansi-escapes'
 import { Command, CommandList } from './command'

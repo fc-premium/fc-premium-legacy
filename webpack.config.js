@@ -5,7 +5,7 @@ const HEADERS_FILE = 'fc-module-handler/tampermonkey.headers.ts';
 
 module.exports = {
 	watch: true,
-	entry: './out/fc-module-handler/init.js',
+	entry: './out/init.js',
 	output: {
 		path: __dirname,
 		filename: OUTPUT_FILE

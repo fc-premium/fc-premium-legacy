@@ -1,6 +1,6 @@
 import { Urls } from './urls'
 import { Utils } from './utils'
-import { Dynamic } from './dynamic'
+import { Dynamic, DynamicLock } from './dynamic'
 import { Post } from './post'
 import { BasicUser, UserID, Nickname } from './user'
 
@@ -65,22 +65,17 @@ export class Thread extends Dynamic {
 		}
 	}
 
+	@DynamicLock
 	public async update(): Promise<this> {
-		if (this.__loading === true || this.exists === false)
+		if (this.exists === false)
 			return this;
-
-		this.__loading = true;
 
 		return fetch(`${Urls.thread}${this.id}`)
 			.then(Utils.responseToHtml)
 			.then(html => {
 				this.updateFromHTML(html);
-
-				this.__loading = false;
-
 				return this;
 			}).catch(() => {
-				this.__loading = false
 				return this;
 			});
 	}

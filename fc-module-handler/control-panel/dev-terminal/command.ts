@@ -1,4 +1,4 @@
-/// <reference path="../types/xterm.d.ts" />
+/// <reference path="../../../types/xterm.d.ts" />
 
 export class Command {
 

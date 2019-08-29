@@ -1,6 +1,6 @@
 import { Utils } from './utils'
 // import { Urls } from './urls'
-import { Dynamic } from './dynamic'
+import { Dynamic, DynamicLock } from './dynamic'
 
 export class Post extends Dynamic {
 	public id: number = null;
@@ -27,8 +27,9 @@ export class Post extends Dynamic {
 	 * Fetch post and update properties
 	 * @return [description]
 	 */
+	@DynamicLock
 	public async update(): Promise<this> {
-		// TODO: 
+		// TODO:
 		return this;
 	}
 

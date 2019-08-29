@@ -94,9 +94,10 @@
 
 			// const ID = await FC.getCurrentUserId();
 			// const ID = 7329259;
-			const currentUser = await FC.getCurrentUser();
-			const ignoredUsers = await currentUser.getIgnoredUsersList();
-			console.log(ignoredUsers);
+			// console.log(FC);
+			const currentUser = await FC.getUserData(660941);
+			// const ignoredUsers = await currentUser.getIgnoredUsersList();
+			console.log(currentUser);
 		})();
 
 	};

@@ -5,7 +5,7 @@
 		"outDir": "./out",
 		"moduleResolution": "node",
 		"experimentalDecorators": true,
-		"emitDecoratorMetadata": true,
+		"emitDecoratorMetadata": false,
 		"removeComments": true,
 
 		"typeRoots": [

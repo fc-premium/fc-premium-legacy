@@ -12,7 +12,7 @@ import {
 import { Module } from '../module'
 import { ModuleHandler } from '../module-handler'
 
-import { DevTerminal } from '../../dev-terminal/terminal'
+import { DevTerminal } from './dev-terminal/terminal'
 
 export class Panel {
 	private readonly MODULE: Module;
