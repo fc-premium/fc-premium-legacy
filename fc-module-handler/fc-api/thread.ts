@@ -81,7 +81,7 @@ export class Thread extends Dynamic {
 	}
 
 	public async getWhoPosted(): Promise<PostCountByUser> {
-		return fetch(`${Urls.whoposted}${this.id}`)
+		return fetch(`${Urls.whoPosted}${this.id}`)
 			.then(Utils.responseToHtml)
 			.then(html => {
 				const postCountByUser: PostCountByUser = new Map();

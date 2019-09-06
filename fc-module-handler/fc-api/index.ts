@@ -10,11 +10,11 @@ export class FC {
 	static readonly Urls = Urls;
 	static readonly Utils = Utils;
 
-	static async getUserData(id: number) {
+	static async getUserData(id: number): Promise<User> {
 		return new User(id).get();
 	}
 
-	static async getThreadData(id: number) {
+	static async getThreadData(id: number): Promise<Thread> {
 		return new Thread(id).get();
 	}
 
@@ -28,7 +28,7 @@ export class FC {
 		if (FC.__userid__ !== null && force_update !== true)
 			return FC.__userid__;
 
-		return fetch(Urls.usercp)
+		return fetch(Urls.usercp.href)
 			.then(Utils.responseToHtml)
 			.then(html => {
 				const anchor = html.querySelector('a[href^="member.php?u"]');
@@ -57,7 +57,7 @@ export class FC {
 		if (typeof TOKEN === 'string') {
 			return TOKEN;
 		} else {
-			return fetch(Urls.onlineusers)
+			return fetch(Urls.onlineUsers.href)
 				.then(Utils.responseToHtml)
 				.then(html => {
 					return html.querySelector<HTMLInputElement>('[name="securitytoken"]').value;
@@ -73,7 +73,7 @@ export class FC {
 		form.set('fragment', nicknameFragment);
 		form.set('securitytoken', await FC.getSecurityToken()); // 1565005787-9fb1951b8ca0c6391e55bfdd55cb824a295989f4
 
-		return fetch(Urls.usersearch, {
+		return fetch(Urls.userSearch.href, {
 			method: 'POST',
 			body: form
 		}).then(Utils.responseToHtml)

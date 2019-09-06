@@ -5,7 +5,10 @@ export function DynamicLock(target: Dynamic, propertyKey: string, descriptor: Pr
 
 	if (target instanceof Dynamic && originalMethod.constructor.name == 'AsyncFunction') {
 		descriptor.value = async function(...args: any[]) {
-			this.__currentPromise = originalMethod.apply(this, ...args)
-		}
+			this.__currentPromise = originalMethod.apply(this, ...args);
+
+			await this.__currentPromise;
+			this.__currentPromise = null;
+		};
 	}
 }
