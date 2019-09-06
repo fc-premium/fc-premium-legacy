@@ -1367,7 +1367,7 @@ class Dynamic {
 
 // CONCATENATED MODULE: ./out/fc-api/dynamic/dynamic-lock.js
 
-function DynamicLock(target, propertyKey, descriptor) {
+function DynamicLock(target, {}, descriptor) {
     const originalMethod = descriptor.value;
     if (target instanceof Dynamic && originalMethod.constructor.name == 'AsyncFunction') {
         descriptor.value = async function (...args) {
@@ -1625,20 +1625,14 @@ class current_user_CurrentUser extends user_User {
         updateForm.set('securitytoken', await fc_api_FC.getSecurityToken());
         currentIgnoredUsers.forEach((user => {
             const id = user.id;
-            if (!userIdList.includes(id)) {
+            if (!userIdList.includes(id))
                 updateForm.set(`listbits[ignore][${id}]`, id.toString());
-            }
-            else {
-                console.log('Ignored', id);
-            }
             updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
         }));
-        const f = (fetch(`${Urls.profile.href}?do=updatelist&userlist=ignore`, {
+        return fetch(`${Urls.profile.href}?do=updatelist&userlist=ignore`, {
             method: 'POST',
             body: updateForm
-        }).then(Utils.responseToHtml).catch((e) => console.error(e)));
-        console.log(await f);
-        return f;
+        });
     }
 }
 
@@ -5286,7 +5280,6 @@ class terminal_DevTerminal {
     }
     pressedKeysHandler(key, ev) {
         const printable = charIsPrintable(ev.keyCode);
-        console.log(ev, key, printable);
         if (ev.keyCode === 13) {
             this.terminal.writeln('');
             const line = this.terminal.buffer
@@ -5343,7 +5336,7 @@ class terminal_DevTerminal {
     parseCommand(fullCommand) {
         const commandParts = fullCommand.trim()
             .split(' ').filter(c => c.length);
-        console.log(commandParts);
+        ;
         if (commandParts.length === 0)
             return;
         const binary = commandParts[0].toLowerCase();
@@ -5686,7 +5679,6 @@ CONTROL_PANEL_MODULE.onload = function () {
 
 
 
-
 console.log(`Version hash: ${definitions["c" /* VERSION_HASH */]}`);
 (GM_info.script.resources).forEach((resource) => {
     if (resource.name.endsWith('.css'))
@@ -5694,7 +5686,6 @@ console.log(`Version hash: ${definitions["c" /* VERSION_HASH */]}`);
 });
 module_handler["a" /* ModuleHandler */].push(CONTROL_PANEL_MODULE);
 module_handler["a" /* ModuleHandler */].loadModules();
-console.log(fc_api["a" /* FC */]);
 
 
 /***/ })
