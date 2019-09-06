@@ -2,7 +2,7 @@
 // @name           FC Script Handler
 // @description    Modular script
 // @author         pytness
-// @version        3.0.1
+// @version        3.0.2
 // @namespace      http://tampermonkey.net/
 
 // @match          https://*.forocoches.com/*
@@ -45,4 +45,5 @@
 // @grant GM_info
 
 // @run-at       document-start
+// @noframes
 // ==/UserScript==
