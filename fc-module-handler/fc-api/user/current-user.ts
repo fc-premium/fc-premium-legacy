@@ -47,7 +47,7 @@ export class CurrentUser extends User {
 			});
 	}
 
-	public async unignoreUsers(userIds: UserID | UserID[]): Promise<HTMLDocument> {
+	public async unignoreUsers(userIds: UserID | UserID[]): Promise<Response> {
 
 		const userIdList: UserID[] = typeof userIds === 'number' ?
 			[userIds] : userIds
@@ -65,22 +65,15 @@ export class CurrentUser extends User {
 		currentIgnoredUsers.forEach((user => {
 			const id: UserID = user.id;
 
-			if (!userIdList.includes(id)) {
+			if (!userIdList.includes(id))
 				updateForm.set(`listbits[ignore][${id}]`, id.toString());
-			} else {
-				console.log('Ignored', id);
-			}
 
 			updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
 		}));
 
-		const f: Promise<HTMLDocument> = <Promise<HTMLDocument>>(fetch(`${Urls.profile.href}?do=updatelist&userlist=ignore`, {
+		return fetch(`${Urls.profile.href}?do=updatelist&userlist=ignore`, {
 			method: 'POST',
 			body: updateForm
-		}).then(Utils.responseToHtml).catch((e) => console.error(e)));
-
-		console.log(await f);
-
-		return f;
+		});
 	}
 }

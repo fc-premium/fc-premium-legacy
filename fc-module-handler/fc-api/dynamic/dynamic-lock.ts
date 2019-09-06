@@ -1,6 +1,6 @@
 import { Dynamic } from './dynamic'
 
-export function DynamicLock(target: Dynamic, propertyKey: string, descriptor: PropertyDescriptor) {
+export function DynamicLock(target: Dynamic, { }, descriptor: PropertyDescriptor) {
 	const originalMethod = descriptor.value;
 
 	if (target instanceof Dynamic && originalMethod.constructor.name == 'AsyncFunction') {

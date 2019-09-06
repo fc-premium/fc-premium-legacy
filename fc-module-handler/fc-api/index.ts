@@ -1,7 +1,7 @@
 import { Urls } from './urls'
 import { Utils } from './utils'
 import { Thread } from './thread'
-import { User, BasicUser, CurrentUser, Nickname, UserID } from './user'
+import { User, BasicUser, CurrentUser, Nickname } from './user'
 
 export class FC {
 
