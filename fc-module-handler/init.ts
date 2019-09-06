@@ -3,6 +3,7 @@
 import { VERSION_HASH } from './definitions'
 import { ModuleHandler } from './module-handler'
 import { CONTROL_PANEL_MODULE } from './control-panel'
+import { FC } from './fc-api'
 
 console.log(`Version hash: ${VERSION_HASH}`);
 
@@ -14,3 +15,6 @@ console.log(`Version hash: ${VERSION_HASH}`);
 
 ModuleHandler.push(CONTROL_PANEL_MODULE);
 ModuleHandler.loadModules();
+
+
+console.log(FC)

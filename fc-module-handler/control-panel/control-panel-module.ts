@@ -4,7 +4,7 @@
 import { Config, MetaConfig, MetaConfigType } from '../module'
 import { Module } from '../module'
 import { VERSION_HASH } from '../definitions'
-import { Utils } from '../utils'
+import { FC } from '../fc-api'
 import { Panel } from './panel'
 import { SETTINGS_BUTTON_TAG } from './constants'
 
@@ -112,7 +112,7 @@ CONTROL_PANEL_MODULE.config.define('TOGGLE_COLOR', <MetaConfigType>{
 });
 
 CONTROL_PANEL_MODULE.onload = function() {
-	if (Utils.isMobileVersion) {
+	if (FC.Utils.isMobileVersion) {
 		const gearTag = $(SETTINGS_BUTTON_TAG);
 
 		$('.mobilebuttonslide').before(gearTag);
@@ -139,7 +139,7 @@ CONTROL_PANEL_MODULE.onload = function() {
 
 	const HASH_BLOCK = VERSION_HASH.slice(0, 8);
 
-	if (!Utils.isMobileVersion) {
+	if (!FC.Utils.isMobileVersion) {
 		$('[id="AutoNumber1"] tbody tr td')[1]
 			.innerText = `Version hash: [${HASH_BLOCK}]`;
 	}
