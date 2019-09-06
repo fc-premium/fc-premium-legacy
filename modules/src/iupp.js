@@ -52,15 +52,15 @@
 				save: function () {
 					MODULE.debug.log(this);
 					switch (PATH) {
-					case FC_PATHS.absolute_path:
+					case FC.Urls.absolutePath.pathname:
 						setThreadVisibilityFromRoot(!this.value);
 						break;
 
-					case FC_PATHS.forumdisplay:
+					case FC.Urls.forumDisplay.pathname:
 						setThreadVisibilityFromForumdisplay(!this.value);
 						break;
 
-					case FC_PATHS.showthread:
+					case FC.Urls.showThread.pathname:
 						setPostVisibility(!this.value)
 						break;
 					default:
@@ -74,13 +74,6 @@
 	const PATH = location.pathname;
 	const URL_SEARCH = location.search;
 
-	const FC_PATHS = {
-		absolute_path: '/',
-		showthread: '/foro/showthread.php',
-		ignorelist: '/foro/profile.php?do=ignorelist',
-		forumdisplay: '/foro/forumdisplay.php'
-	}
-
 	const DEFAULT_FILENAME = 'ignoredusers.export';
 
 	function getAjax(url) {
@@ -93,7 +86,7 @@
 
 	function parseIgnoredListHtml(html) {
 
-		html = Utils.parseHTML(html);
+		html = FC.Utils.parseHTML(html);
 
 		let li_list = $(html)
 			.find('.userlist.floatcontainer')
@@ -119,7 +112,7 @@
 
 		if (do_update || Object.keys(iu_list).length === 0) {
 			MODULE.debug.log('Updating iu list');
-			let response = getAjax(FC_PATHS.ignorelist);
+			let response = getAjax(FC.Urls.ignoreList);
 
 			iu_list = parseIgnoredListHtml(response);
 
@@ -346,10 +339,10 @@
 
 	function insertButtons() {
 
-		let submit = $('.userlist_form_controls input[type="submit"]');
-		let exportButton = $('<input type="button" class="button tm" value="Exportar"> ');
-		let importButton = $('<input type="button" class="button tm" value="Importar"> ');
-		let progress = $('<span id="importProgress"></span>');
+		const submit = $('.userlist_form_controls input[type="submit"]');
+		const exportButton = $('<input type="button" class="button tm" value="Exportar"> ');
+		const importButton = $('<input type="button" class="button tm" value="Importar"> ');
+		const progress = $('<span id="importProgress"></span>');
 
 		exportButton.on('click', exportUserList);
 		importButton.on('click', importUserList);
@@ -409,7 +402,6 @@
 		});
 	}
 
-
 	// refactorize this
 	function setPostVisibility(show = false) {
 
@@ -420,13 +412,13 @@
 		const USER_ID_LIST = iu_list.map(a => parseInt(a[0]));
 		const USERNAME_LIST = iu_list.map(a => a[1]);
 
-		const quoteAuthors = $(Utils.isMobileVersion ?
+		const quoteAuthors = $(FC.Utils.isMobileVersion ?
 			'div > strong:has(+a[href*="showthread.php?p="] > img)' :
 			'td.alt2 > div > b:has(+a[href*="showthread.php?p="] > img)'
 		);
 
 
-		const postAuthors = $(Utils.isMobileVersion ?
+		const postAuthors = $(FC.Utils.isMobileVersion ?
 			'.ui-link:not(.fpostuseravatarlink)' :
 			'div[align="center"] div.smallfont + a'
 		);
@@ -439,7 +431,7 @@
 
 			if (USER_ID_LIST.includes(user_id)) {
 
-				const element = $(authorLink).closest(Utils.isMobileVersion ?
+				const element = $(authorLink).closest(FC.Utils.isMobileVersion ?
 					'ul' : 'div[align="center"]');
 
 				MODULE.debug.log(`Ignored user post detected from ${authorLink.innerText} with id: ${user_id}`);
@@ -464,7 +456,7 @@
 			if (USERNAME_LIST.includes(lowerUname)) {
 				MODULE.debug.log(`Ignored user quote detected from ${uname}`);
 
-				const element = $(author).closest(Utils.isMobileVersion ?
+				const element = $(author).closest(FC.Utils.isMobileVersion ?
 					'ul' : 'div[align="center"]');
 
 				if (show)
@@ -491,7 +483,7 @@
 
 				text.innerHTML = '<br>Este mensaje está oculto porque ' +
 					`<b>${uname}</b> está en tu ` +
-					`<a href="${FC_PATHS.ignorelist}" target="_blank">` +
+					`<a href="${FC.Urls.ignoreList}" target="_blank">` +
 					'lista de ignorados</a>';
 			}
 		});
@@ -500,7 +492,7 @@
 
 	MODULE.onload = function () {
 
-		if ((PATH + URL_SEARCH) == FC_PATHS.ignorelist) {
+		if ((PATH + URL_SEARCH) == FC.Urls.ignoreList) {
 			MODULE.config.set('UPDATE', true);
 			MODULE.debug.log('Hitted ignored list url, update on next module load');
 
@@ -512,15 +504,15 @@
 		} else {
 
 			switch (PATH) {
-			case FC_PATHS.absolute_path:
+			case FC.Urls.absolutePath.pathname:
 				setThreadVisibilityFromRoot();
 				break;
 
-			case FC_PATHS.forumdisplay:
+			case FC.Urls.forumDisplay.pathname:
 				setThreadVisibilityFromForumdisplay();
 				break;
 
-			case FC_PATHS.showthread:
+			case FC.Urls.showThread.pathname:
 				setPostVisibility(!MODULE.config.get('HIDE_IU_POSTS'))
 				break;
 			default:
@@ -531,17 +523,17 @@
 
 	MODULE.onunload = function () {
 
-		if ((PATH + URL_SEARCH) !== FC_PATHS.ignorelist) {
+		if ((PATH + URL_SEARCH) !== FC.Urls.ignoreList) {
 			switch (PATH) {
-			case FC_PATHS.absolute_path:
+			case FC.Urls.absolutePath.pathname:
 				setThreadVisibilityFromRoot(true);
 				break;
 
-			case FC_PATHS.forumdisplay:
+			case FC.Urls.forumDisplay.pathname:
 				setThreadVisibilityFromForumdisplay(true);
 				break;
 
-			case FC_PATHS.showthread:
+			case FC.Urls.showThread.pathname:
 				setPostVisibility(true)
 				break;
 			default:
