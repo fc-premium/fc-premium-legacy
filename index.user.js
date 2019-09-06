@@ -2,7 +2,7 @@
 // @name           FC Script Handler
 // @description    Modular script
 // @author         pytness
-// @version        3.0.1
+// @version        3.0.2
 // @namespace      http://tampermonkey.net/
 
 // @match          https://*.forocoches.com/*
@@ -45,6 +45,7 @@
 // @grant GM_info
 
 // @run-at       document-start
+// @noframes
 // ==/UserScript==
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -129,7 +130,7 @@
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 24);
+/******/ 	return __webpack_require__(__webpack_require__.s = 23);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -435,26 +436,26 @@ var module_handler = __webpack_require__(2);
 
 class config_Config {
     constructor(module) {
-        this.__config = new Map();
+        this.entries = new Map();
         this.hostModule = module;
         config_Config.DEFAULT_CONFIG.forEach(([key, value]) => this.define(key, value));
     }
     get(key) {
-        return this.__config.has(key) ?
-            this.__config.get(key).value : undefined;
+        return this.entries.has(key) ?
+            this.entries.get(key).value : undefined;
     }
     getMeta(key) {
-        return this.__config.get(key);
+        return this.entries.get(key);
     }
     set(key, value, autosave = true) {
-        if (this.__config.has(key)) {
-            const config = this.__config.get(key);
+        if (this.entries.has(key)) {
+            const config = this.entries.get(key);
             if (config instanceof hook_Hook) {
                 config.hook.hostModule.config.set(config.referenceKey, value);
             }
             else {
                 config.value = value;
-                this.__config.set(key, config);
+                this.entries.set(key, config);
             }
         }
         if (autosave === true)
@@ -462,15 +463,15 @@ class config_Config {
         return this;
     }
     keys() {
-        return Array.from(this.__config.keys());
+        return Array.from(this.entries.keys());
     }
     has(key) {
-        return this.__config.has(key);
+        return this.entries.has(key);
     }
     reset(key, autosave = true) {
-        let conf = this.__config.get(key);
+        let conf = this.entries.get(key);
         conf.value = conf.defaultValue;
-        this.__config.set(key, conf);
+        this.entries.set(key, conf);
         if (autosave === true)
             this.saveConfig();
         return this;
@@ -484,13 +485,13 @@ class config_Config {
         return this;
     }
     define(key, conf) {
-        if (this.__config.has(key))
+        if (this.entries.has(key))
             throw 'Config key already exists';
-        this.__config.set(key, new meta_config_MetaConfig(this.hostModule, key, conf));
+        this.entries.set(key, new meta_config_MetaConfig(this.hostModule, key, conf));
         return this;
     }
     undefine(key) {
-        this.__config.delete(key);
+        this.entries.delete(key);
         let storagedConfig = this.hostModule.storage.get('config');
         delete storagedConfig[key];
         this.hostModule.storage.set('config', storagedConfig);
@@ -499,10 +500,10 @@ class config_Config {
         const hookModule = module_handler["a" /* ModuleHandler */].get(hookModuleName);
         if (!hookModule.config.has(key))
             throw 'Config hook key does not exists';
-        if (this.__config.has(newKey))
+        if (this.entries.has(newKey))
             throw 'Config hook newKey already exists';
         let chook = new hook_Hook(this.hostModule, hookModule.config.getMeta(key), config);
-        this.__config.set(newKey, chook);
+        this.entries.set(newKey, chook);
         return this;
     }
     loadSavedConfig() {
@@ -523,7 +524,7 @@ class config_Config {
     }
     importConfig(new_config) {
         Object.keys(new_config).forEach((key) => {
-            if (this.__config.has(key)) {
+            if (this.entries.has(key)) {
                 this.set(key, new_config[key], false);
             }
         });
@@ -531,7 +532,7 @@ class config_Config {
     exportConfig() {
         const config = {};
         this.keys().forEach(key => {
-            let conf = this.__config.get(key);
+            let conf = this.entries.get(key);
             if (!(conf instanceof hook_Hook) && !conf.flags.isset('WIDGET'))
                 config[key] = conf.value;
         });
@@ -888,7 +889,7 @@ class module_Module {
 /***/ (function(module, exports, __webpack_require__) {
 
 /* eslint-disable node/no-deprecated-api */
-var buffer = __webpack_require__(15)
+var buffer = __webpack_require__(14)
 var Buffer = buffer.Buffer
 
 // alternative to using Object.keys for old browsers
@@ -1211,422 +1212,670 @@ ansiEscapes.iTerm = {
 	setCwd: (cwd = process.cwd()) => `${OSC}50;CurrentDir=${cwd}${BEL}`
 };
 
-/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(23)))
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(22)))
 
 /***/ }),
 /* 7 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return Utils; });
-String.prototype.removeTildes = function () {
-    return this.normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, "");
-};
-FormData.prototype.toDataString = function () {
-    return Array.from(this).reduce((a, b) => (typeof a == 'string' ? `${a}&` : `${a[0]}=${escape(a[1])}&`) +
-        `${b[0]}=${escape(b[1])}`);
-};
-Array.prototype.binarySearch = function (value, valueGetter = null, comp = null) {
-    let lastPos = 0;
-    let pos = Math.round(this.length / 2);
-    let foundAt = -1;
-    valueGetter = typeof valueGetter !== 'function' ?
-        (v) => v : valueGetter;
-    comp = typeof comp !== 'function' ?
-        (a, b) => a - b : comp;
-    while (foundAt == -1 && pos < this.length) {
-        let v = valueGetter(this[pos]);
-        let r = comp(v, value);
-        if (r < 0) {
-            pos += Math.round((lastPos + pos) / 2);
-        }
-        else if (r > 0) {
-            pos -= Math.round((lastPos + pos) / 2);
-        }
-        else {
-            foundAt = pos;
-        }
-        lastPos = pos;
-    }
-    return foundAt;
-};
-JSON.safeParse = (json) => {
-    try {
-        json = JSON.parse(json);
-    }
-    catch (e) {
-        json = undefined;
-    }
-    return json;
-};
-$.expr[':'].icontains = function (a, i, m) {
-    return jQuery(a).text().toUpperCase()
-        .indexOf(m[3].toUpperCase()) >= 0;
-};
-class _Utils {
-    constructor() {
-        this.urls = {
-            thread: 'https://www.forocoches.com/foro/showthread.php?t=',
-            post: 'https://www.forocoches.com/foro/showthread.php?p=',
-            deletePost: 'https://www.forocoches.com/foro/editpost.php',
-            user: 'https://www.forocoches.com/foro/member.php?u=',
-            quote: 'https://www.forocoches.com/foro/newreply.php?do=newreply&p=',
-            newPost: 'https://www.forocoches.com/foro/newreply.php?do=postreply&t=',
-            private: 'https://www.forocoches.com/foro/private.php',
-            ignoreList: 'https://www.forocoches.com/foro/profile.php?do=ignorelist',
-            usercp: 'https://www.forocoches.com/foro/usercp.php?'
-        };
-        this._isMobileVersion = location.host.split('.')[0] === 'm';
-    }
-    utf8ToIso(arrayBuffer) {
+
+// CONCATENATED MODULE: ./out/fc-api/urls.js
+class Urls {
+}
+Urls.absolutePath = new URL('https://www.forocoches.com/');
+Urls.thread = new URL('https://www.forocoches.com/foro/showthread.php?t=');
+Urls.whoPosted = new URL('https://www.forocoches.com/foro/misc.php?do=whoposted&t=');
+Urls.post = new URL('https://www.forocoches.com/foro/showthread.php?p=');
+Urls.deletePost = new URL('https://www.forocoches.com/foro/editpost.php');
+Urls.user = new URL('https://www.forocoches.com/foro/member.php?u=');
+Urls.quote = new URL('https://www.forocoches.com/foro/newreply.php?do=newreply&p=');
+Urls.newPost = new URL('https://www.forocoches.com/foro/newreply.php?do=postreply&t=');
+Urls.private = new URL('https://www.forocoches.com/foro/private.php');
+Urls.ignoreList = new URL('https://www.forocoches.com/foro/profile.php?do=ignorelist');
+Urls.contactList = new URL('https://www.forocoches.com/foro/profile.php?do=buddylist');
+Urls.profile = new URL('https://www.forocoches.com/foro/profile.php');
+Urls.usercp = new URL('https://www.forocoches.com/foro/usercp.php?');
+Urls.userSearch = new URL('https://www.forocoches.com/foro/ajax.php?do=usersearch');
+Urls.onlineUsers = new URL('https://www.forocoches.com/foro/online.php');
+Urls.forumDisplay = new URL('https://www.forocoches.com/foro/forumdisplay.php?f=');
+Urls.showThread = new URL('https://www.forocoches.com/foro/showthread.php?t=');
+
+// CONCATENATED MODULE: ./out/fc-api/utils.js
+class Utils {
+    static utf8ToIso(arrayBuffer) {
         let encoder = new TextDecoder("ISO-8859-1");
         arrayBuffer = new Uint8Array(arrayBuffer);
         return encoder.decode(arrayBuffer);
     }
-    parseHTML(text) {
+    static parseHTML(text) {
         return (new DOMParser()).parseFromString(text, "text/html");
     }
-    responseToHtml(response) {
+    static responseToHtml(response) {
         return response.arrayBuffer()
             .then(Utils.utf8ToIso)
             .then(Utils.parseHTML);
     }
-    get isMobileVersion() {
+    static removeTildesFromString(value) {
+        return value.normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+    static formToDataString(form) {
+        return Array.from(form).reduce((a, b) => (typeof a == 'string' ? `${a}&` : `${a[0]}=${escape(a[1])}&`) +
+            `${b[0]}=${escape(b[1])}`);
+    }
+    static arrayBinarySearch(array, value, comp = null, valueGetter = null) {
+        let lastPos = 0;
+        let pos = Math.round(array.length / 2);
+        let foundAt = -1;
+        valueGetter = typeof valueGetter === null ?
+            (v) => v : valueGetter;
+        comp = typeof comp === null ?
+            (a, b) => a - b : comp;
+        while (foundAt == -1 && pos < array.length) {
+            const v = valueGetter(array[pos]);
+            const r = comp(v, value);
+            if (r < 0) {
+                pos += Math.round((lastPos + pos) / 2);
+            }
+            else if (r > 0) {
+                pos -= Math.round((lastPos + pos) / 2);
+            }
+            else {
+                foundAt = pos;
+            }
+            lastPos = pos;
+        }
+        return foundAt;
+    }
+    static jsonSafeParse(json) {
+        try {
+            return JSON.parse(json);
+        }
+        catch (e) {
+            return undefined;
+        }
+    }
+    static get isMobileVersion() {
         return this._isMobileVersion;
     }
-    parseFCDate(str_date) {
+    static parseFCDate(dateString) {
         const msInADay = 1000 * 60 * 60 * 24;
-        if (typeof str_date !== 'string') {
+        if (typeof dateString !== 'string') {
             let invalid = new Date();
             invalid.setTime(NaN);
             return invalid;
         }
-        str_date = str_date.trim().split(' ');
-        let months = {
+        const dateChunks = dateString.split(',')
+            .map(s => s.trim());
+        const monthsTranslations = {
             'ene': 'jan',
-            'feb': 'feb',
-            'mar': 'mar',
             'abr': 'apr',
-            'may': 'may',
-            'jun': 'jun',
-            'jul': 'jul',
             'ago': 'aug',
-            'sep': 'sep',
-            'oct': 'oct',
-            'nov': 'nov',
             'dic': 'dec'
         };
-        let tarr;
-        let date = new Date();
-        date.setTime(Math.floor(Date.now() / msInADay) * msInADay);
-        if ((str_date[0] === 'Ayer')) {
-            date.setTime(date.getTime() - msInADay);
+        const date = new Date();
+        if (['Hoy', 'Ayer'].includes(dateChunks[0])) {
+            date.setTime(Math.floor(Date.now() / msInADay) * msInADay +
+                (date.getTimezoneOffset() * 1000 * 60));
+            if (dateChunks[0] === 'Ayer')
+                date.setTime(date.getTime() - msInADay);
         }
-        else if (str_date[0] !== 'Hoy') {
-            tarr = str_date[0].split('-');
-            tarr[1] = months[tarr[1]];
-            date = new Date(Date.parse(tarr.join('-')));
+        else {
+            let [day, month, year] = dateChunks[0].split('-');
+            if (monthsTranslations.hasOwnProperty(month))
+                month = monthsTranslations[month];
+            date.setTime(Date.parse([day, month, year].join('-')));
         }
-        if (str_date.length > 1) {
-            let hour = Date.parse(`1-1-1970 ${str_date[1]} GMT`);
-            date.setTime(date.getTime() + hour);
+        if (dateChunks.length > 1) {
+            let hour = Date.parse(`1-1-1970 ${dateChunks[1]} GMT`);
+            date.setTime(date.getTime() + hour - (new Date().getTimezoneOffset()));
         }
         return date;
     }
-    getUserData(id) {
-        let self = this;
-        return fetch(`${self.urls.user}${id}`)
-            .then(self.responseToHtml)
+}
+Utils._isMobileVersion = location.host.split('.')[0] === 'm';
+
+// CONCATENATED MODULE: ./out/fc-api/dynamic/dynamic.js
+class Dynamic {
+    constructor() {
+        this.__currentPromise = null;
+    }
+    async waitUntilLoadingIsComplete() {
+        return new Promise(resolve => {
+            if (this.__currentPromise === null) {
+                resolve();
+            }
+            else {
+                this.__currentPromise
+                    .then((x) => {
+                    resolve();
+                    return x;
+                })
+                    .catch((x) => {
+                    resolve();
+                    return x;
+                });
+            }
+        });
+    }
+    async get() {
+        await this.waitUntilLoadingIsComplete();
+        return this;
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-api/dynamic/dynamic-lock.js
+
+function DynamicLock(target, propertyKey, descriptor) {
+    const originalMethod = descriptor.value;
+    if (target instanceof Dynamic && originalMethod.constructor.name == 'AsyncFunction') {
+        descriptor.value = async function (...args) {
+            this.__currentPromise = originalMethod.apply(this, ...args);
+            await this.__currentPromise;
+            this.__currentPromise = null;
+        };
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-api/dynamic/index.js
+
+
+
+// CONCATENATED MODULE: ./out/fc-api/post.js
+var __decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+
+
+class post_Post extends Dynamic {
+    constructor(number, update = true) {
+        super();
+        this.id = null;
+        this.threadId = null;
+        this.ownerId = null;
+        this.number = null;
+        this.content = null;
+        this.creationDate = null;
+        this.editDate = null;
+        this.number = number;
+        if (update)
+            this.update();
+    }
+    async update() {
+        return this;
+    }
+    updateFromHTML(html) {
+        if (html.tagName !== 'TABLE' || !html.id.startsWith('post'))
+            throw 'No a valid post';
+        this.id = parseInt(html.id.slice(4));
+        this.threadId = parseInt((/t\=([\d]+)/).exec(html.querySelector('[href^="showthread.php?t="]').href)[1]);
+        this.ownerId = parseInt(html.querySelector('.bigusername').href.split('=')[1]);
+        this.number = parseInt(html.querySelector('[id^="postcount"]').name);
+        this.content = html.querySelector('[name="HOTWordsTxt"] > div').outerHTML;
+        this.creationDate = Utils.parseFCDate(html.querySelector('td.thead').innerText);
+        this.editDate = (function () {
+            const editPhrase = html.querySelector('td[class^="alt1"][valign="bottom"] em');
+            if (editPhrase === null)
+                return null;
+            let fcDateString = editPhrase.innerText.split('fecha: ')[1]
+                .replace(' a las', ',').slice(0, -1);
+            return Utils.parseFCDate(fcDateString);
+        })();
+        return this;
+    }
+    static fromHTML(html) {
+        return new post_Post(null, false).updateFromHTML(html);
+    }
+}
+__decorate([
+    DynamicLock
+], post_Post.prototype, "update", null);
+
+// CONCATENATED MODULE: ./out/fc-api/user/user-abouts.js
+class UserAbouts {
+    constructor() {
+        this.car = null;
+        this.place = null;
+        this.interests = null;
+        this.occupation = null;
+        this.signature = null;
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-api/user/user-stats.js
+class UserStats {
+    constructor() {
+        this.messageCount = null;
+        this.signupDate = null;
+        this.lastActivity = null;
+    }
+    get messagesPerDay() {
+        if (this.messageCount === null || this.signupDate === null)
+            return null;
+        const msSinceSignUp = Date.now() - this.signupDate.getTime();
+        return this.messageCount / (msSinceSignUp / 1000 / 60 / 60 / 24);
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-api/user/user.js
+var user_decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+
+
+
+
+
+class user_User extends Dynamic {
+    constructor(id, update = true) {
+        super();
+        this.exists = true;
+        this.nickname = null;
+        this.avatar = null;
+        this.isConnected = null;
+        this.title = null;
+        this.stats = new UserStats();
+        this.about = new UserAbouts();
+        this.error = null;
+        this.id = id;
+        if (update)
+            this.update();
+    }
+    async update() {
+        if (this.exists === false)
+            return this;
+        return fetch(`${Urls.user}${this.id}&simple=1`)
+            .then(Utils.responseToHtml)
             .then(html => {
-            let data = {
-                messageCount: null,
-                messagesPerDay: null,
-                signupDate: null,
-                lastActivity: null
-            };
-            const messageError = $(html).find('.panelsurround');
-            if (messageError.length != 0) {
-                let tempData = $(html).find('.statistics_group .shade')
-                    .parent().toArray()
-                    .map((a) => {
-                    let x = a.innerText.split(':');
+            const errorMessage = html.querySelector('.panelsurround');
+            if (errorMessage !== null) {
+                this.error = errorMessage.innerText.trim();
+                this.exists = false;
+            }
+            else {
+                this.nickname = html.querySelector('#username_box > h1').innerText.trim();
+                this.avatar = html.querySelector('img.avatar');
+                this.isConnected = html.querySelector('#username_box img')
+                    .getAttribute('src').search('online') >= 0;
+                this.title = html.querySelector('#username_box > h2').innerText.trim();
+                let tempData = Array.from(html.querySelectorAll('.statistics_group .shade'))
+                    .map((span) => {
+                    const li = span.parentNode;
+                    let x = li.innerText.split(':');
                     return [
-                        x[0].removeTildes().trim(),
+                        Utils.removeTildesFromString(x[0]).trim(),
                         x.slice(1).join(':')
                     ];
                 });
                 tempData = Object.fromEntries(tempData);
-                data.messageCount = parseInt(tempData['Mensajes Total'].replace('.', ''));
-                data.messagesPerDay = parseFloat(tempData['Mensajes / Dia'].replace(',', '.'));
-                data.lastActivity = self.parseFCDate(tempData['Ultima Actividad']);
-                data.lastActivity = isNaN(data.lastActivity.getTime()) ?
-                    null : data.lastActivity;
-                data.signupDate = self.parseFCDate(tempData['Fecha de Registro']);
-                data.signupDate = isNaN(data.signupDate.getTime()) ?
-                    null : data.signupDate;
-            }
-            return data;
-        });
-    }
-    getCurrentUserId() {
-        let html, uid;
-        if (this.__userid__ !== null)
-            return this.__userid__;
-        $.ajax({
-            type: 'GET',
-            url: `https://www.forocoches.com/foro/usercp.php`,
-            success: function (e) {
-                html = (new DOMParser()).parseFromString(e, "text/html");
-            },
-            async: false
-        });
-        let anchor = $(html).find('a[href^="member.php?u"]');
-        uid = $(anchor[0]).attr('href');
-        if (uid !== undefined)
-            uid = uid.split('=')[1];
-        this.__userid__ = parseInt(uid);
-        return this.__userid__;
-    }
-    checkThreadIsEchenique(threadHTML) {
-        let messageError = $(threadHTML).find('.panelsurround')[0]
-            .innerText.trim()
-            .removeTildes();
-        return messageError === 'Ningun Tema especificado.' ||
-            messageError === "Tema especificado invalido.";
-    }
-    checkThreadsOwner(threadHTML) {
-        let anchor = $(threadHTML).find('.bigusername')[0];
-        let ownerUserId = parseInt($(anchor).attr('href').split('=')[1]);
-        return ownerUserId;
-    }
-    postMessage(threadId, message) {
-        const userId = this.getCurrentUserId();
-        let self = this;
-        return fetch(`${this.urls.thread}${threadId}`)
-            .then(this.responseToHtml)
-            .then(html => {
-            let token = $(html).find('[name*="token"]')[0].value;
-            let fdata = new FormData();
-            let errors = false;
-            let g_html = false;
-            fdata.set('securitytoken', token);
-            fdata.set('do', 'postreply');
-            fdata.set('loggedinuser', userId);
-            fdata.set('message', message);
-            $.ajax({
-                type: "POST",
-                url: `${self.urls.newPost}${threadId}`,
-                data: fdata.toDataString(),
-                success: function (html) {
-                    g_html = html;
-                    errors = $(html).find('error').toArray();
-                }
-            });
-            return new Promise((a, b) => {
-                let x = setInterval(function () {
-                    if (errors !== false) {
-                        clearInterval(x);
-                        a([g_html, errors]);
+                this.stats.messageCount = parseInt(tempData['Mensajes Total'].replace('.', ''));
+                const lastActivity = Utils.parseFCDate(tempData['Ultima Actividad']);
+                this.stats.lastActivity = isNaN(lastActivity.getTime()) ?
+                    null : lastActivity;
+                const signupDate = Utils.parseFCDate(tempData['Fecha de Registro']);
+                this.stats.signupDate = isNaN(signupDate.getTime()) ?
+                    null : signupDate;
+                tempData = Array.from(html.querySelectorAll('.list_no_decoration .profilefield_list > *'))
+                    .map((element, index) => {
+                    let value;
+                    if (index % 2 === 0) {
+                        value = Utils.removeTildesFromString(element.innerText);
                     }
-                });
-            });
-        });
-    }
-    deletePost(post_id, reason = '') {
-        return fetch(`${this.urls.post}${post_id}`)
-            .then(this.responseToHtml)
-            .then(html => {
-            let token = $(html).find('[name*="token"]')[0].value;
-            let fdata = new FormData();
-            fdata.set('securitytoken', token);
-            fdata.set('do', 'deletepost');
-            fdata.set('s', '');
-            fdata.set('postid', post_id);
-            fdata.set('deletepost', 'delete');
-            fdata.set('reason', reason);
-            return $.ajax({
-                type: "POST",
-                url: this.urls.deletePost,
-                data: fdata.toDataString(),
-            });
-        });
-    }
-    sendPrivateMessage(recipient, title, message) {
-        let self = this;
-        return fetch(`${this.urls.private}?do=newpm`)
-            .then(this.responseToHtml)
-            .then(html => {
-            return [html, $(html).find('[name*="token"]')[0].value];
-        })
-            .then(([html, token]) => {
-            let fdata = new FormData();
-            fdata.set('securitytoken', token);
-            fdata.set('recipients', recipient);
-            fdata.set('title', title);
-            fdata.set('message', message);
-            fdata.set('wysiwyg', 0);
-            fdata.set('iconid', 0);
-            fdata.set('s', '');
-            fdata.set('do', 'insertpm');
-            fdata.set('pmid', '');
-            fdata.set('forward', '');
-            fdata.set('sbutton', '');
-            fdata.set('savecopy', 1);
-            fdata.set('signature', 1);
-            fdata.set('parseurl', 1);
-            let g_html = false;
-            let errors = false;
-            $.ajax({
-                type: "POST",
-                url: `${self.urls.private}?do=insertpm&pmid=`,
-                data: fdata.toDataString(),
-                success: function (html) {
-                    g_html = html;
-                    errors = $(html).find('error').toArray();
-                }
-            });
-            return new Promise((a, b) => {
-                let x = setInterval(function () {
-                    if (errors !== false) {
-                        clearInterval(x);
-                        a([g_html, errors]);
+                    else {
+                        value = element.childNodes[0].nodeValue;
                     }
-                });
-            });
-        });
-    }
-    getThreadFromPostId(post_id) {
-        return fetch(`https://www.forocoches.com/foro/showthread.php?p=${post_id}`)
-            .then(this.responseToHtml)
-            .then(html => {
-            let url = $(html).find(`[id*="postcount"]`)[0].href;
-            return parseInt((new URL(url)).searchParams.get('t'));
-        });
-    }
-    getMessagesFromThread(id, page = 1) {
-        let self = this;
-        return fetch(`${self.urls.thread}${id}&page=${page}`)
-            .then(this.responseToHtml)
-            .then(html => {
-            return $(html).find('#posts div[align="center"] table[id^="post"]')
-                .toArray().slice(1)
-                .map(table => {
-                let tds = $(table).find('td');
-                let user_el = $(tds[2]).find('.bigusername')[0];
-                let content = $(table).find('[id*="post_message"]')[0].outerHTML.trim();
-                return {
-                    messageId: parseInt(table.id.slice(4)),
-                    uid: parseInt(user_el.href.split('=')[1]),
-                    username: user_el.innerText.trim(),
-                    content: content,
-                };
-            });
-        });
-    }
-    getPagesFromThread(threadHTML) {
-        let text = $(threadHTML).find('.pagenav .vbmenu_control');
-        if (text.length !== 0) {
-            text = text[0].innerText.trim();
-            text = text.split(' ');
-        }
-        else {
-            text = [0, 1, 0, 1];
-        }
-        return [text[1], text[3]]
-            .map(s => parseInt(s));
-    }
-    getThreadById(thread_id, page = 1) {
-        let self = this;
-        let html;
-        $.ajax({
-            type: 'GET',
-            url: `${self.urls.thread}${thread_id}&page=${page}`,
-            success: function (e) {
-                html = (new DOMParser()).parseFromString(e, "text/html");
-            },
-            async: false
-        });
-        return html;
-    }
-    getIgnoredUserList() {
-        return fetch(this.urls.ignoreList)
-            .then(this.responseToHtml)
-            .then(html => {
-            let inputs = $(html).find('#ignorelist input[type="checkbox"]').toArray();
-            inputs = inputs.filter(input => input.checked);
-            let ignoredUsers = {};
-            if (inputs.length > 0) {
-                inputs.forEach(input => {
-                    let user_id = input.value;
-                    let username = input.parentElement
-                        .innerText.trim();
-                    ignoredUsers[user_id] = username;
-                });
+                    return value.trim();
+                }).map((value, index, self) => {
+                    return index % 2 === 0 ?
+                        [value, self[index + 1]] : undefined;
+                }).filter(x => x !== undefined);
+                tempData = Object.fromEntries(tempData);
+                this.about.car = tempData.hasOwnProperty('Coche') ?
+                    tempData['Coche'] : null;
+                this.about.place = tempData.hasOwnProperty('Lugar') ?
+                    tempData['Lugar'] : null;
+                this.about.interests = tempData.hasOwnProperty('Intereses') ?
+                    tempData['Intereses'] : null;
+                this.about.occupation = tempData.hasOwnProperty('Ocupacion') ?
+                    tempData['Ocupacion'] : null;
+                this.about.signature = html.querySelector('#signature')
+                    .innerHTML.trim();
             }
-            return ignoredUsers;
-        });
-    }
-    getMnQFromMessage(message) {
-        let mentions = [];
-        let quotes = [];
-        try {
-            mentions = $(message).find('b>a[href*="/member.php?u="]')
-                .toArray()
-                .map(el => [
-                parseInt(el.href.split('=')[1]),
-                el.innerText.trim()
-            ]);
-        }
-        catch (e) {
-            mentions = [];
-        }
-        $('div.smallfont ~ table').toArray().map(el => {
-            return {
-                username: $(el).find('div b')[0].innerText.trim(),
-                postId: parseInt($(el).find('div b ~ a')[0].href.split('=')[1]),
-                content: $(el).find('div ~ div')[0].outerHTML
-            };
-        });
-        try {
-            quotes = $(message).find('div.smallfont ~ table')
-                .toArray().map(el => {
-                return {
-                    username: $(el).find('div b')[0].innerText.trim(),
-                    postId: parseInt($(el).find('div b ~ a')[0].href.split('=')[1]),
-                    content: $(el).find('div ~ div')[0].outerHTML
-                };
-            });
-        }
-        catch (e) {
-            quotes = [];
-        }
-        return {
-            mentions,
-            quotes
-        };
-    }
-    getNotifications() {
-        return fetch(this.urls.usercp)
-            .then(this.responseToHtml)
-            .then(html => {
-            html = $(html);
-            let data = {
-                pmCount: null,
-                mentionsCount: null,
-                quotesCount: null
-            };
-            let temp = html.find('strong + div:has(a[href="private.php?"])').text();
-            data.pmCount = parseInt(temp.split(':')[1].trim().split(' ')[0]);
-            temp = html.find('[href="/foro/usertag.php?do=profilenotif&tab=mentions"] span');
-            data.mentionsCount = parseInt(temp[0].innerText);
-            temp = html.find('[href="/foro/usertag.php?do=profilenotif&tab=quotes"] span');
-            data.quotesCount = parseInt(temp[0].innerText);
-            return data;
+            return this;
+        }).catch(() => {
+            return this;
         });
     }
 }
-const Utils = new _Utils();
+user_decorate([
+    DynamicLock
+], user_User.prototype, "update", null);
+
+// CONCATENATED MODULE: ./out/fc-api/user/basic-user.js
+
+class basic_user_BasicUser {
+    constructor(id = null, nickname = null) {
+        this.id = null;
+        this.nickname = null;
+        this.id = id;
+        this.nickname = nickname.trim();
+    }
+    getUser(update = true) {
+        return new user_User(this.id, update);
+    }
+    static fromHTML(html) {
+        const id = (function () {
+            if (html.hasAttribute('userid'))
+                return parseInt(html.getAttribute('userid'));
+            if (html.hasAttribute('href'))
+                return parseInt(html.getAttribute('href').split('=')[1]);
+            throw new Error('HTML tag is not valid');
+        })();
+        const nickname = html.innerText;
+        return new basic_user_BasicUser(id, nickname);
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-api/user/current-user.js
+
+
+
+
+
+class current_user_CurrentUser extends user_User {
+    constructor() {
+        super(null, false);
+        const self = this;
+        (async function () {
+            self.id = await fc_api_FC.getCurrentUserId();
+            await self.update();
+        })();
+    }
+    async getIgnoredUserList() {
+        return fetch(Urls.ignoreList.href)
+            .then(Utils.responseToHtml)
+            .then((html) => {
+            const ignoredUserTagList = html.querySelectorAll('.userlist [href*="member.php?u="]');
+            return Array.from(ignoredUserTagList).map(tag => basic_user_BasicUser.fromHTML(tag));
+        });
+    }
+    async getContactList() {
+        return fetch(Urls.contactList.href)
+            .then(Utils.responseToHtml)
+            .then((html) => {
+            const contactUserList = html.querySelectorAll('.userlist [href*="member.php?u="]');
+            return Array.from(contactUserList).map(tag => basic_user_BasicUser.fromHTML(tag));
+        });
+    }
+    async unignoreUsers(userIds) {
+        const userIdList = typeof userIds === 'number' ?
+            [userIds] : userIds;
+        const currentIgnoredUsers = await this.getIgnoredUserList();
+        const updateForm = new FormData();
+        updateForm.set('s', '');
+        updateForm.set('do', 'updatelist');
+        updateForm.set('userlist', 'ignore');
+        updateForm.set('securitytoken', await fc_api_FC.getSecurityToken());
+        currentIgnoredUsers.forEach((user => {
+            const id = user.id;
+            if (!userIdList.includes(id)) {
+                updateForm.set(`listbits[ignore][${id}]`, id.toString());
+            }
+            else {
+                console.log('Ignored', id);
+            }
+            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
+        }));
+        const f = (fetch(`${Urls.profile.href}?do=updatelist&userlist=ignore`, {
+            method: 'POST',
+            body: updateForm
+        }).then(Utils.responseToHtml).catch((e) => console.error(e)));
+        console.log(await f);
+        return f;
+    }
+}
+
+// CONCATENATED MODULE: ./out/fc-api/user/index.js
+
+
+
+
+
+
+// CONCATENATED MODULE: ./out/fc-api/thread.js
+var thread_decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+
+
+
+
+
+class thread_Thread extends Dynamic {
+    constructor(id, update = true) {
+        super();
+        this.authorId = null;
+        this.zoneId = null;
+        this.title = null;
+        this.creationDate = null;
+        this.postCount = null;
+        this.exists = true;
+        this.error = null;
+        this.id = id;
+        if (update)
+            this.update();
+    }
+    get pageCount() {
+        return Math.ceil(this.postCount / thread_Thread.DEFAULT_POSTS_PER_PAGE);
+    }
+    updateFromHTML(html) {
+        const errorPanel = html.querySelector('.panelsurround');
+        const errorOccurred = errorPanel !== null &&
+            errorPanel.querySelector('textarea') === null &&
+            document.querySelector('.panelsurround').querySelector('fieldset') === null;
+        if (errorOccurred === true) {
+            this.error = errorPanel.innerText.trim();
+            this.exists = false;
+        }
+        else {
+            if (this.authorId === null) {
+                this.authorId = parseInt(html.querySelector('.bigusername').getAttribute('href').split('=')[1]);
+                this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar > [href*="forumdisplay.php?f="]')
+                    .getAttribute('href').split('=')[1]);
+                this.creationDate = Utils.parseFCDate(html.querySelector('[id*="post"] td.thead').innerText);
+            }
+            this.title = html.querySelector('.cmega').innerText;
+            let navNext = html.querySelector('.pagenav .mfont');
+            if (navNext !== null) {
+                this.postCount = parseInt(navNext.title.split(' ').slice(-1)[0].replace('.', ''));
+            }
+            else {
+                this.postCount = html.querySelectorAll('[id*="postcount"]').length;
+            }
+        }
+    }
+    async update() {
+        if (this.exists === false)
+            return this;
+        return fetch(`${Urls.thread}${this.id}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            this.updateFromHTML(html);
+            return this;
+        }).catch(() => {
+            return this;
+        });
+    }
+    async getWhoPosted() {
+        return fetch(`${Urls.whoPosted}${this.id}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            const postCountByUser = new Map();
+            const rows = Array.from(html.querySelectorAll('.tborder > tbody > tr')).slice(2, -1);
+            rows.forEach(row => {
+                const cols = row.querySelectorAll('td > a');
+                const userId = parseInt(cols[0].href.split('=')[1]);
+                const nickname = cols[0].innerText.trim();
+                const postsCount = parseInt(cols[1].innerText);
+                postCountByUser.set(new basic_user_BasicUser(userId, nickname), postsCount);
+            });
+            return postCountByUser;
+        });
+    }
+    async getPost(number) {
+        return fetch(`${Urls.thread}${this.id}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            const postHTML = html.querySelector(`[name="${number}"]`)
+                .parentNode.parentNode.parentNode.parentNode;
+            return post_Post.fromHTML(postHTML);
+        });
+    }
+    async getMultiplePosts(numbers) {
+        numbers.sort((a, b) => a - b);
+        const numbersByPage = (function () {
+            const pages = new Map;
+            numbers.forEach(n => {
+                const page = Math.ceil(n / thread_Thread.MAX_POSTS_PER_PAGE);
+                if (!pages.has(page))
+                    pages.set(page, []);
+                pages.get(page).push(n);
+            });
+            return pages;
+        })();
+        const pageNumbers = Array.from(numbersByPage.keys());
+        const pagesRequests = Array.from(numbersByPage.keys()).map(pageNumber => {
+            return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${thread_Thread.MAX_POSTS_PER_PAGE}`)
+                .then(Utils.responseToHtml);
+        });
+        const posts = new Map();
+        (await Promise.all(pagesRequests)).map((html, i) => {
+            const numbersInCurrentPage = numbersByPage.get(pageNumbers[i]);
+            numbersInCurrentPage.forEach(number => {
+                const postHTML = html.querySelector(`[name="${number}"]`)
+                    .parentNode.parentNode.parentNode.parentNode;
+                posts.set(number, post_Post.fromHTML(postHTML));
+            });
+        });
+        return posts;
+    }
+    async getPostsInPage(pageNumber = 1, postsPerPage = thread_Thread.DEFAULT_POSTS_PER_PAGE, update = true) {
+        if (postsPerPage < 0)
+            throw 'postsPerPage can not be negative';
+        if (postsPerPage > thread_Thread.MAX_POSTS_PER_PAGE)
+            postsPerPage = thread_Thread.MAX_POSTS_PER_PAGE;
+        return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${postsPerPage}`)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            if (update === true)
+                this.updateFromHTML(html);
+            const posts = Array.from(html.querySelectorAll('table[id^="post"]'));
+            return posts.map((html) => {
+                return post_Post.fromHTML(html);
+            });
+        });
+    }
+    async getPostInRange(start = null, end = null, update = true) {
+        if (start === null || end === null)
+            throw 'Must introduce start - end range';
+        if (start >= end)
+            throw 'Start position must be less than end postition';
+        const startPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
+        const endPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
+        const range = endPage - startPage;
+        const postsInPages = new Array(range).fill(undefined).map(({}, index) => {
+            const pageNumber = index + startPage;
+            return this.getPostsInPage(pageNumber, thread_Thread.MAX_POSTS_PER_PAGE, update);
+        });
+        const posts = (await Promise.all(postsInPages)).flat();
+        return posts.slice(0, range);
+    }
+}
+thread_Thread.DEFAULT_POSTS_PER_PAGE = 30;
+thread_Thread.MAX_POSTS_PER_PAGE = 60;
+thread_decorate([
+    DynamicLock
+], thread_Thread.prototype, "update", null);
+
+// CONCATENATED MODULE: ./out/fc-api/index.js
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return fc_api_FC; });
+
+
+
+
+class fc_api_FC {
+    static async getUserData(id) {
+        return new user_User(id).get();
+    }
+    static async getThreadData(id) {
+        return new thread_Thread(id).get();
+    }
+    static async getCurrentUserId(force_update = false) {
+        const hasLoggedIn = new Set(document.cookie.split(';').map(x => x.split('=')[0]))
+            .has('bbsessionhash');
+        if (!hasLoggedIn)
+            return -1;
+        if (fc_api_FC.__userid__ !== null && force_update !== true)
+            return fc_api_FC.__userid__;
+        return fetch(Urls.usercp.href)
+            .then(Utils.responseToHtml)
+            .then(html => {
+            const anchor = html.querySelector('a[href^="member.php?u"]');
+            if (anchor !== null) {
+                let uid = anchor.getAttribute('href');
+                if (uid !== undefined)
+                    uid = uid.split('=')[1];
+                fc_api_FC.__userid__ = parseInt(uid);
+            }
+            return fc_api_FC.__userid__;
+        });
+    }
+    static async getCurrentUser() {
+        return new current_user_CurrentUser().get();
+    }
+    static async getSecurityToken() {
+        const TOKEN = window.SECURITYTOKEN;
+        if (typeof TOKEN === 'string') {
+            return TOKEN;
+        }
+        else {
+            return fetch(Urls.onlineUsers.href)
+                .then(Utils.responseToHtml)
+                .then(html => {
+                return html.querySelector('[name="securitytoken"]').value;
+            });
+        }
+    }
+    static async searchForPartialNickname(nicknameFragment) {
+        const form = new FormData();
+        form.set('do', 'usersearch');
+        form.set('fragment', nicknameFragment);
+        form.set('securitytoken', await fc_api_FC.getSecurityToken());
+        return fetch(Urls.userSearch.href, {
+            method: 'POST',
+            body: form
+        }).then(Utils.responseToHtml)
+            .then(xml => {
+            const userTags = Array.from(xml.querySelectorAll('user'));
+            return userTags.map((userTag) => {
+                return basic_user_BasicUser.fromHTML(userTag);
+            });
+        });
+    }
+}
+fc_api_FC.__userid__ = null;
+fc_api_FC.Urls = Urls;
+fc_api_FC.Utils = Utils;
 
 
 /***/ }),
@@ -2112,10 +2361,8 @@ module.exports = Sha512
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return ModuleHandler; });
 /* harmony import */ var _module__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
 /* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(0);
-/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(7);
-/* harmony import */ var _fc_api__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(13);
-/* harmony import */ var _resource_handler__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(8);
-
+/* harmony import */ var _fc_api__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(7);
+/* harmony import */ var _resource_handler__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(8);
 
 
 
@@ -2165,9 +2412,9 @@ MODULE.onload = function () {
     ModuleHandler.loadUserResources().then(() => ModuleHandler.loadModules());
 };
 function contextEval(source) {
-    return (function (Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
+    return (function (Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
         return eval(source);
-    })(_module__WEBPACK_IMPORTED_MODULE_0__[/* Debug */ "c"], _module__WEBPACK_IMPORTED_MODULE_0__[/* LocalStorage */ "e"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "b"], _module__WEBPACK_IMPORTED_MODULE_0__[/* FlagHandler */ "d"], _module__WEBPACK_IMPORTED_MODULE_0__[/* CSSHandler */ "a"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"], _fc_api__WEBPACK_IMPORTED_MODULE_3__[/* FC */ "a"], _utils__WEBPACK_IMPORTED_MODULE_2__[/* Utils */ "a"], ModuleHandler, _definitions__WEBPACK_IMPORTED_MODULE_1__[/* GLOBAL_ENTRY_NAME */ "a"], _definitions__WEBPACK_IMPORTED_MODULE_1__[/* VERSION_HASH */ "c"], _definitions__WEBPACK_IMPORTED_MODULE_1__[/* NO_CACHE_HEADERS */ "b"]);
+    })(_module__WEBPACK_IMPORTED_MODULE_0__[/* Debug */ "c"], _module__WEBPACK_IMPORTED_MODULE_0__[/* LocalStorage */ "e"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Config */ "b"], _module__WEBPACK_IMPORTED_MODULE_0__[/* FlagHandler */ "d"], _module__WEBPACK_IMPORTED_MODULE_0__[/* CSSHandler */ "a"], _module__WEBPACK_IMPORTED_MODULE_0__[/* Module */ "f"], _fc_api__WEBPACK_IMPORTED_MODULE_2__[/* FC */ "a"], ModuleHandler, _definitions__WEBPACK_IMPORTED_MODULE_1__[/* GLOBAL_ENTRY_NAME */ "a"], _definitions__WEBPACK_IMPORTED_MODULE_1__[/* VERSION_HASH */ "c"], _definitions__WEBPACK_IMPORTED_MODULE_1__[/* NO_CACHE_HEADERS */ "b"]);
 }
 class ModuleHandler {
     static has(key) {
@@ -2228,9 +2475,9 @@ class ModuleHandler {
     }
     static async loadUserResources() {
         let resources = MODULE.config.get('RESOURCES');
-        return _resource_handler__WEBPACK_IMPORTED_MODULE_4__[/* ResourceHandler */ "a"].unpackJSONlinks(resources)
-            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_4__[/* ResourceHandler */ "a"].sortResources)
-            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_4__[/* ResourceHandler */ "a"].getSourceCode)
+        return _resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].unpackJSONlinks(resources)
+            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].sortResources)
+            .then(_resource_handler__WEBPACK_IMPORTED_MODULE_3__[/* ResourceHandler */ "a"].getSourceCode)
             .then(scriptSources => {
             scriptSources.filter(a => a !== false).sort(([_a, ai], [_b, bi]) => ai - bi).forEach(([source, {}]) => {
                 try {
@@ -2297,629 +2544,16 @@ var exports = module.exports = function SHA (algorithm) {
   return new Algorithm()
 }
 
-exports.sha = __webpack_require__(14)
-exports.sha1 = __webpack_require__(20)
-exports.sha224 = __webpack_require__(21)
+exports.sha = __webpack_require__(13)
+exports.sha1 = __webpack_require__(19)
+exports.sha224 = __webpack_require__(20)
 exports.sha256 = __webpack_require__(9)
-exports.sha384 = __webpack_require__(22)
+exports.sha384 = __webpack_require__(21)
 exports.sha512 = __webpack_require__(10)
 
 
 /***/ }),
 /* 13 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-
-// CONCATENATED MODULE: ./out/fc_api/urls.js
-class Urls {
-}
-Urls.thread = 'https://www.forocoches.com/foro/showthread.php?t=';
-Urls.whoposted = 'https://www.forocoches.com/foro/misc.php?do=whoposted&t=';
-Urls.post = 'https://www.forocoches.com/foro/showthread.php?p=';
-Urls.deletePost = 'https://www.forocoches.com/foro/editpost.php';
-Urls.user = 'https://www.forocoches.com/foro/member.php?u=';
-Urls.quote = 'https://www.forocoches.com/foro/newreply.php?do=newreply&p=';
-Urls.newPost = 'https://www.forocoches.com/foro/newreply.php?do=postreply&t=';
-Urls.private = 'https://www.forocoches.com/foro/private.php';
-Urls.ignoreList = 'https://www.forocoches.com/foro/profile.php?do=ignorelist';
-Urls.profile = 'https://www.forocoches.com/foro/profile.php';
-Urls.usercp = 'https://www.forocoches.com/foro/usercp.php?';
-Urls.usersearch = 'https://www.forocoches.com/foro/ajax.php?do=usersearch';
-Urls.onlineusers = 'https://www.forocoches.com/foro/online.php';
-;
-
-// CONCATENATED MODULE: ./out/fc_api/utils.js
-class Utils {
-    static removeTildesFromString(value) {
-        return value.normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, "");
-    }
-    static utf8ToIso(arrayBuffer) {
-        let encoder = new TextDecoder("ISO-8859-1");
-        arrayBuffer = new Uint8Array(arrayBuffer);
-        return encoder.decode(arrayBuffer);
-    }
-    static parseHTML(text) {
-        return (new DOMParser()).parseFromString(text, "text/html");
-    }
-    static responseToHtml(response) {
-        return response.arrayBuffer()
-            .then(Utils.utf8ToIso)
-            .then(Utils.parseHTML);
-    }
-    static parseFCDate(str_date) {
-        const msInADay = 1000 * 60 * 60 * 24;
-        if (typeof str_date !== 'string') {
-            let invalid = new Date();
-            invalid.setTime(NaN);
-            return invalid;
-        }
-        str_date = str_date.split(',')
-            .map(s => s.trim());
-        const monthsTranslations = {
-            'ene': 'jan',
-            'feb': 'feb',
-            'mar': 'mar',
-            'abr': 'apr',
-            'may': 'may',
-            'jun': 'jun',
-            'jul': 'jul',
-            'ago': 'aug',
-            'sep': 'sep',
-            'oct': 'oct',
-            'nov': 'nov',
-            'dic': 'dec'
-        };
-        let tarr;
-        let date = new Date();
-        date.setTime(Math.floor(Date.now() / msInADay) * msInADay +
-            (date.getTimezoneOffset() * 1000 * 60));
-        if ((str_date[0] === 'Ayer')) {
-            date.setTime(date.getTime() - msInADay);
-        }
-        else if (str_date[0] !== 'Hoy') {
-            tarr = str_date[0].split('-');
-            tarr[1] = monthsTranslations[tarr[1]];
-            date = new Date(Date.parse(tarr.join('-')));
-        }
-        if (str_date.length > 1) {
-            let hour = Date.parse(`1-1-1970 ${str_date[1]} GMT`);
-            date.setTime(date.getTime() + hour - (new Date().getTimezoneOffset()));
-        }
-        return date;
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/dynamic/dynamic.js
-class Dynamic {
-    constructor() {
-        this.__currentPromise = null;
-    }
-    async waitUntilLoadingIsComplete() {
-        return new Promise(resolve => {
-            if (this.__currentPromise === null) {
-                resolve();
-            }
-            else {
-                this.__currentPromise
-                    .then((x) => {
-                    resolve();
-                    return x;
-                })
-                    .catch((x) => {
-                    resolve();
-                    return x;
-                });
-            }
-        });
-    }
-    async get() {
-        await this.waitUntilLoadingIsComplete();
-        return this;
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/dynamic/dynamic-lock.js
-
-function DynamicLock(target, propertyKey, descriptor) {
-    const originalMethod = descriptor.value;
-    if (target instanceof Dynamic && originalMethod.constructor.name == 'AsyncFunction') {
-        descriptor.value = async function (...args) {
-            this.__currentPromise = originalMethod.apply(this, ...args);
-        };
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/dynamic/index.js
-
-
-
-// CONCATENATED MODULE: ./out/fc_api/post.js
-var __decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-
-class post_Post extends Dynamic {
-    constructor(number, update = true) {
-        super();
-        this.id = null;
-        this.threadId = null;
-        this.ownerId = null;
-        this.number = null;
-        this.content = null;
-        this.creationDate = null;
-        this.editDate = null;
-        this.number = number;
-        if (update)
-            this.update();
-    }
-    async update() {
-        return this;
-    }
-    updateFromHTML(html) {
-        if (html.tagName !== 'TABLE' || !html.id.startsWith('post'))
-            throw 'No a valid post';
-        this.id = parseInt(html.id.slice(4));
-        this.threadId = parseInt((/t\=([\d]+)/).exec(html.querySelector('[href^="showthread.php?t="]').href)[1]);
-        this.ownerId = parseInt(html.querySelector('.bigusername').href.split('=')[1]);
-        this.number = parseInt(html.querySelector('[id^="postcount"]').name);
-        this.content = html.querySelector('[name="HOTWordsTxt"] > div').outerHTML;
-        this.creationDate = Utils.parseFCDate(html.querySelector('td.thead').innerText);
-        this.editDate = (function () {
-            const editPhrase = html.querySelector('td[class^="alt1"][valign="bottom"] em');
-            if (editPhrase === null)
-                return null;
-            let fcDateString = editPhrase.innerText.split('fecha: ')[1]
-                .replace(' a las', ',').slice(0, -1);
-            return Utils.parseFCDate(fcDateString);
-        })();
-        return this;
-    }
-    static fromHTML(html) {
-        return new post_Post(null, false).updateFromHTML(html);
-    }
-}
-__decorate([
-    DynamicLock
-], post_Post.prototype, "update", null);
-
-// CONCATENATED MODULE: ./out/fc_api/user/user-abouts.js
-class UserAbouts {
-    constructor() {
-        this.car = null;
-        this.place = null;
-        this.interests = null;
-        this.occupation = null;
-        this.signature = null;
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/user/user-stats.js
-class UserStats {
-    constructor() {
-        this.messageCount = null;
-        this.signupDate = null;
-        this.lastActivity = null;
-    }
-    get messagesPerDay() {
-        if (this.messageCount === null || this.signupDate === null)
-            return null;
-        const msSinceSignUp = Date.now() - this.signupDate.getTime();
-        return this.messageCount / (msSinceSignUp / 1000 / 60 / 60 / 24);
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/user/user.js
-var user_decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-
-
-
-
-class user_User extends Dynamic {
-    constructor(id, update = true) {
-        super();
-        this.exists = true;
-        this.nickname = null;
-        this.avatar = null;
-        this.isConnected = null;
-        this.title = null;
-        this.stats = new UserStats();
-        this.about = new UserAbouts();
-        this.error = null;
-        this.id = id;
-        if (update)
-            this.update();
-    }
-    async update() {
-        if (this.exists === false)
-            return this;
-        return fetch(`${Urls.user}${this.id}&simple=1`)
-            .then(Utils.responseToHtml)
-            .then(html => {
-            const errorMessage = html.querySelector('.panelsurround');
-            if (errorMessage !== null) {
-                this.error = errorMessage.innerText.trim();
-                this.exists = false;
-            }
-            else {
-                this.nickname = html.querySelector('#username_box > h1').innerText.trim();
-                this.avatar = html.querySelector('img.avatar');
-                this.isConnected = html.querySelector('#username_box img')
-                    .getAttribute('src').search('online') >= 0;
-                this.title = html.querySelector('#username_box > h2').innerText.trim();
-                let tempData = Array.from(html.querySelectorAll('.statistics_group .shade'))
-                    .map((span) => {
-                    const li = span.parentNode;
-                    let x = li.innerText.split(':');
-                    return [
-                        Utils.removeTildesFromString(x[0]).trim(),
-                        x.slice(1).join(':')
-                    ];
-                });
-                tempData = Object.fromEntries(tempData);
-                this.stats.messageCount = parseInt(tempData['Mensajes Total'].replace('.', ''));
-                const lastActivity = Utils.parseFCDate(tempData['Ultima Actividad']);
-                this.stats.lastActivity = isNaN(lastActivity.getTime()) ?
-                    null : lastActivity;
-                const signupDate = Utils.parseFCDate(tempData['Fecha de Registro']);
-                this.stats.signupDate = isNaN(signupDate.getTime()) ?
-                    null : signupDate;
-                tempData = Array.from(html.querySelectorAll('.list_no_decoration .profilefield_list > *'))
-                    .map((element, index) => {
-                    let value;
-                    if (index % 2 === 0) {
-                        value = Utils.removeTildesFromString(element.innerText);
-                    }
-                    else {
-                        value = element.childNodes[0].nodeValue;
-                    }
-                    return value.trim();
-                }).map((value, index, self) => {
-                    return index % 2 === 0 ?
-                        [value, self[index + 1]] : undefined;
-                }).filter(x => x !== undefined);
-                tempData = Object.fromEntries(tempData);
-                this.about.car = tempData.hasOwnProperty('Coche') ?
-                    tempData['Coche'] : null;
-                this.about.place = tempData.hasOwnProperty('Lugar') ?
-                    tempData['Lugar'] : null;
-                this.about.interests = tempData.hasOwnProperty('Intereses') ?
-                    tempData['Intereses'] : null;
-                this.about.occupation = tempData.hasOwnProperty('Ocupacion') ?
-                    tempData['Ocupacion'] : null;
-                this.about.signature = html.querySelector('#signature')
-                    .innerHTML.trim();
-            }
-            return this;
-        }).catch(() => {
-            return this;
-        });
-    }
-}
-user_decorate([
-    DynamicLock
-], user_User.prototype, "update", null);
-
-// CONCATENATED MODULE: ./out/fc_api/user/basic-user.js
-
-class basic_user_BasicUser {
-    constructor(id = null, nickname = null) {
-        this.id = null;
-        this.nickname = null;
-        this.id = id;
-        this.nickname = nickname.trim();
-    }
-    getUser(update = true) {
-        return new user_User(this.id, update);
-    }
-    static fromHTML(html) {
-        const id = (function () {
-            if (html.hasAttribute('userid'))
-                return parseInt(html.getAttribute('userid'));
-            if (html.hasAttribute('href'))
-                return parseInt(html.getAttribute('href').split('=')[1]);
-            throw new Error('HTML tag is not valid');
-        })();
-        const nickname = html.innerText;
-        return new basic_user_BasicUser(id, nickname);
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/user/current-user.js
-
-
-
-
-
-class current_user_CurrentUser extends user_User {
-    constructor() {
-        super(null, false);
-        const self = this;
-        (async function () {
-            self.id = await fc_api_FC.getCurrentUserId();
-            await self.update();
-        })();
-    }
-    async getIgnoredUsersList() {
-        return fetch(Urls.ignoreList)
-            .then(Utils.responseToHtml)
-            .then((html) => {
-            const ignoredUserTagList = html.querySelectorAll('.userlist [href*="member.php?u="]');
-            return Array.from(ignoredUserTagList).map(tag => basic_user_BasicUser.fromHTML(tag));
-        });
-    }
-    async ignoreUsers(userIds) {
-        if (typeof userIds === 'number')
-            userIds = [userIds];
-        const currentIgnoredUsers = await this.getIgnoredUsersList();
-        const updateForm = new FormData();
-        updateForm.set('s', '');
-        updateForm.set('securitytoken', await fc_api_FC.getSecurityToken());
-        currentIgnoredUsers.forEach((user => {
-            const id = user.id;
-            updateForm.set(`listbits[ignore][${id}]`, id.toString());
-            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
-        }));
-        userIds.forEach((id) => {
-            updateForm.set(`listbits[ignore][${id}]`, id.toString());
-            updateForm.set(`listbits[ignore_original][${id}]`, id.toString());
-        });
-        return fetch(`${Urls.profile}?do=updatelist&userlist=ignore`, {
-            method: 'POST',
-            body: updateForm
-        });
-    }
-}
-
-// CONCATENATED MODULE: ./out/fc_api/user/index.js
-
-
-
-
-
-
-// CONCATENATED MODULE: ./out/fc_api/thread.js
-var thread_decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-
-
-
-
-class thread_Thread extends Dynamic {
-    constructor(id, update = true) {
-        super();
-        this.authorId = null;
-        this.zoneId = null;
-        this.title = null;
-        this.creationDate = null;
-        this.postCount = null;
-        this.exists = true;
-        this.error = null;
-        this.id = id;
-        if (update)
-            this.update();
-    }
-    get pageCount() {
-        return Math.ceil(this.postCount / thread_Thread.DEFAULT_POSTS_PER_PAGE);
-    }
-    updateFromHTML(html) {
-        const errorPanel = html.querySelector('.panelsurround');
-        const errorOccurred = errorPanel !== null &&
-            errorPanel.querySelector('textarea') === null &&
-            document.querySelector('.panelsurround').querySelector('fieldset') === null;
-        if (errorOccurred === true) {
-            this.error = errorPanel.innerText.trim();
-            this.exists = false;
-        }
-        else {
-            if (this.authorId === null) {
-                this.authorId = parseInt(html.querySelector('.bigusername').getAttribute('href').split('=')[1]);
-                this.zoneId = parseInt(html.querySelector('.navbar + .navbar + .navbar > [href*="forumdisplay.php?f="]')
-                    .getAttribute('href').split('=')[1]);
-                this.creationDate = Utils.parseFCDate(html.querySelector('[id*="post"] td.thead').innerText);
-            }
-            this.title = html.querySelector('.cmega').innerText;
-            let navNext = html.querySelector('.pagenav .mfont');
-            if (navNext !== null) {
-                this.postCount = parseInt(navNext.title.split(' ').slice(-1)[0].replace('.', ''));
-            }
-            else {
-                this.postCount = html.querySelectorAll('[id*="postcount"]').length;
-            }
-        }
-    }
-    async update() {
-        if (this.exists === false)
-            return this;
-        return fetch(`${Urls.thread}${this.id}`)
-            .then(Utils.responseToHtml)
-            .then(html => {
-            this.updateFromHTML(html);
-            return this;
-        }).catch(() => {
-            return this;
-        });
-    }
-    async getWhoPosted() {
-        return fetch(`${Urls.whoposted}${this.id}`)
-            .then(Utils.responseToHtml)
-            .then(html => {
-            const postCountByUser = new Map();
-            const rows = Array.from(html.querySelectorAll('.tborder > tbody > tr')).slice(2, -1);
-            rows.forEach(row => {
-                const cols = row.querySelectorAll('td > a');
-                const userId = parseInt(cols[0].href.split('=')[1]);
-                const nickname = cols[0].innerText.trim();
-                const postsCount = parseInt(cols[1].innerText);
-                postCountByUser.set(new basic_user_BasicUser(userId, nickname), postsCount);
-            });
-            return postCountByUser;
-        });
-    }
-    async getPost(number) {
-        return fetch(`${Urls.thread}${this.id}`)
-            .then(Utils.responseToHtml)
-            .then(html => {
-            const postHTML = html.querySelector(`[name="${number}"]`)
-                .parentNode.parentNode.parentNode.parentNode;
-            return post_Post.fromHTML(postHTML);
-        });
-    }
-    async getMultiplePosts(numbers) {
-        numbers.sort((a, b) => a - b);
-        const numbersByPage = (function () {
-            const pages = new Map;
-            numbers.forEach(n => {
-                const page = Math.ceil(n / thread_Thread.MAX_POSTS_PER_PAGE);
-                if (!pages.has(page))
-                    pages.set(page, []);
-                pages.get(page).push(n);
-            });
-            return pages;
-        })();
-        const pageNumbers = Array.from(numbersByPage.keys());
-        const pagesRequests = Array.from(numbersByPage.keys()).map(pageNumber => {
-            return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${thread_Thread.MAX_POSTS_PER_PAGE}`)
-                .then(Utils.responseToHtml);
-        });
-        const posts = new Map();
-        (await Promise.all(pagesRequests)).map((html, i) => {
-            const numbersInCurrentPage = numbersByPage.get(pageNumbers[i]);
-            numbersInCurrentPage.forEach(number => {
-                const postHTML = html.querySelector(`[name="${number}"]`)
-                    .parentNode.parentNode.parentNode.parentNode;
-                posts.set(number, post_Post.fromHTML(postHTML));
-            });
-        });
-        return posts;
-    }
-    async getPostsInPage(pageNumber = 1, postsPerPage = thread_Thread.DEFAULT_POSTS_PER_PAGE, update = true) {
-        if (postsPerPage < 0)
-            throw 'postsPerPage can not be negative';
-        if (postsPerPage > thread_Thread.MAX_POSTS_PER_PAGE)
-            postsPerPage = thread_Thread.MAX_POSTS_PER_PAGE;
-        return fetch(`${Urls.thread}${this.id}&page=${pageNumber}&pp=${postsPerPage}`)
-            .then(Utils.responseToHtml)
-            .then(html => {
-            if (update === true)
-                this.updateFromHTML(html);
-            const posts = Array.from(html.querySelectorAll('table[id^="post"]'));
-            return posts.map((html) => {
-                return post_Post.fromHTML(html);
-            });
-        });
-    }
-    async getPostInRange(start = null, end = null, update = true) {
-        if (start === null || end === null)
-            throw 'Must introduce start - end range';
-        if (start >= end)
-            throw 'Start position must be less than end postition';
-        const startPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
-        const endPage = Math.ceil(start / thread_Thread.MAX_POSTS_PER_PAGE);
-        const range = endPage - startPage;
-        const postsInPages = new Array(range).fill(undefined).map(({}, index) => {
-            const pageNumber = index + startPage;
-            return this.getPostsInPage(pageNumber, thread_Thread.MAX_POSTS_PER_PAGE, update);
-        });
-        const posts = (await Promise.all(postsInPages)).flat();
-        return posts.slice(0, range);
-    }
-}
-thread_Thread.DEFAULT_POSTS_PER_PAGE = 30;
-thread_Thread.MAX_POSTS_PER_PAGE = 60;
-thread_decorate([
-    DynamicLock
-], thread_Thread.prototype, "update", null);
-
-// CONCATENATED MODULE: ./out/fc_api/index.js
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return fc_api_FC; });
-
-
-
-
-class fc_api_FC {
-    static async getUserData(id) {
-        return new user_User(id).get();
-    }
-    static async getThreadData(id) {
-        return new thread_Thread(id).get();
-    }
-    static async getCurrentUserId(force_update = false) {
-        const hasLoggedIn = new Set(document.cookie.split(';').map(x => x.split('=')[0]))
-            .has('bbsessionhash');
-        if (!hasLoggedIn)
-            return -1;
-        if (fc_api_FC.__userid__ !== null && force_update !== true)
-            return fc_api_FC.__userid__;
-        return fetch(Urls.usercp)
-            .then(Utils.responseToHtml)
-            .then(html => {
-            const anchor = html.querySelector('a[href^="member.php?u"]');
-            if (anchor !== null) {
-                let uid = anchor.getAttribute('href');
-                if (uid !== undefined)
-                    uid = uid.split('=')[1];
-                fc_api_FC.__userid__ = parseInt(uid);
-            }
-            return fc_api_FC.__userid__;
-        });
-    }
-    static async getCurrentUser() {
-        return new current_user_CurrentUser().get();
-    }
-    static async getSecurityToken() {
-        const TOKEN = window.SECURITYTOKEN;
-        if (typeof TOKEN === 'string') {
-            return TOKEN;
-        }
-        else {
-            return fetch(Urls.onlineusers)
-                .then(Utils.responseToHtml)
-                .then(html => {
-                return html.querySelector('[name="securitytoken"]').value;
-            });
-        }
-    }
-    static async searchForPartialNickname(nicknameFragment) {
-        const form = new FormData();
-        form.set('do', 'usersearch');
-        form.set('fragment', nicknameFragment);
-        form.set('securitytoken', await fc_api_FC.getSecurityToken());
-        return fetch(Urls.usersearch, {
-            method: 'POST',
-            body: form
-        }).then(Utils.responseToHtml)
-            .then(xml => {
-            const userTags = Array.from(xml.querySelectorAll('user'));
-            return userTags.map((userTag) => {
-                return basic_user_BasicUser.fromHTML(userTag);
-            });
-        });
-    }
-}
-fc_api_FC.__userid__ = null;
-fc_api_FC.Urls = Urls;
-fc_api_FC.Utils = Utils;
-
-
-/***/ }),
-/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /*
@@ -3019,7 +2653,7 @@ module.exports = Sha
 
 
 /***/ }),
-/* 15 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -3033,9 +2667,9 @@ module.exports = Sha
 
 
 
-var base64 = __webpack_require__(17)
-var ieee754 = __webpack_require__(18)
-var isArray = __webpack_require__(19)
+var base64 = __webpack_require__(16)
+var ieee754 = __webpack_require__(17)
+var isArray = __webpack_require__(18)
 
 exports.Buffer = Buffer
 exports.SlowBuffer = SlowBuffer
@@ -4813,10 +4447,10 @@ function isnan (val) {
   return val !== val // eslint-disable-line no-self-compare
 }
 
-/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(16)))
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(15)))
 
 /***/ }),
-/* 16 */
+/* 15 */
 /***/ (function(module, exports) {
 
 var g;
@@ -4842,7 +4476,7 @@ module.exports = g;
 
 
 /***/ }),
-/* 17 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5000,7 +4634,7 @@ function fromByteArray (uint8) {
 
 
 /***/ }),
-/* 18 */
+/* 17 */
 /***/ (function(module, exports) {
 
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
@@ -5090,7 +4724,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 
 
 /***/ }),
-/* 19 */
+/* 18 */
 /***/ (function(module, exports) {
 
 var toString = {}.toString;
@@ -5101,7 +4735,7 @@ module.exports = Array.isArray || function (arr) {
 
 
 /***/ }),
-/* 20 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /*
@@ -5206,7 +4840,7 @@ module.exports = Sha1
 
 
 /***/ }),
-/* 21 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -5265,7 +4899,7 @@ module.exports = Sha224
 
 
 /***/ }),
-/* 22 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var inherits = __webpack_require__(4)
@@ -5328,7 +4962,7 @@ module.exports = Sha384
 
 
 /***/ }),
-/* 23 */
+/* 22 */
 /***/ (function(module, exports) {
 
 // shim for using process in browser
@@ -5518,7 +5152,7 @@ process.umask = function() { return 0; };
 
 
 /***/ }),
-/* 24 */
+/* 23 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -5533,8 +5167,8 @@ var module_handler = __webpack_require__(2);
 // EXTERNAL MODULE: ./out/module/index.js + 9 modules
 var out_module = __webpack_require__(1);
 
-// EXTERNAL MODULE: ./out/utils.js
-var utils = __webpack_require__(7);
+// EXTERNAL MODULE: ./out/fc-api/index.js + 13 modules
+var fc_api = __webpack_require__(7);
 
 // CONCATENATED MODULE: ./out/control-panel/constants.js
 const SETTINGS_BUTTON_TAG = `<i class="material-icons config-button">settings</i>`;
@@ -6017,7 +5651,7 @@ CONTROL_PANEL_MODULE.config.define('TOGGLE_COLOR', {
     }
 });
 CONTROL_PANEL_MODULE.onload = function () {
-    if (utils["a" /* Utils */].isMobileVersion) {
+    if (fc_api["a" /* FC */].Utils.isMobileVersion) {
         const gearTag = $(SETTINGS_BUTTON_TAG);
         $('.mobilebuttonslide').before(gearTag);
         gearTag.on('click', function (e) {
@@ -6039,7 +5673,7 @@ CONTROL_PANEL_MODULE.onload = function () {
         'background-color': CONTROL_PANEL_MODULE.config.get('TOGGLE_COLOR')
     });
     const HASH_BLOCK = definitions["c" /* VERSION_HASH */].slice(0, 8);
-    if (!utils["a" /* Utils */].isMobileVersion) {
+    if (!fc_api["a" /* FC */].Utils.isMobileVersion) {
         $('[id="AutoNumber1"] tbody tr td')[1]
             .innerText = `Version hash: [${HASH_BLOCK}]`;
     }
@@ -6052,6 +5686,7 @@ CONTROL_PANEL_MODULE.onload = function () {
 
 
 
+
 console.log(`Version hash: ${definitions["c" /* VERSION_HASH */]}`);
 (GM_info.script.resources).forEach((resource) => {
     if (resource.name.endsWith('.css'))
@@ -6059,6 +5694,7 @@ console.log(`Version hash: ${definitions["c" /* VERSION_HASH */]}`);
 });
 module_handler["a" /* ModuleHandler */].push(CONTROL_PANEL_MODULE);
 module_handler["a" /* ModuleHandler */].loadModules();
+console.log(fc_api["a" /* FC */]);
 
 
 /***/ })
