@@ -7,7 +7,7 @@ import { ModuleHandler } from '../../module-handler'
 export class Config {
 
 	public hostModule: Module;
-	private __config: Map<string, any> = new Map();
+	private entries: Map<string, any> = new Map();
 
 	static DEFAULT_CONFIG: Array<[string, MetaConfigType]>;
 	static HTML: {
@@ -26,27 +26,37 @@ export class Config {
 		);
 	}
 
+	/**
+	 * Get configuration key value
+	 * @param  {string} key key to get
+	 */
 	get(key: string): any {
-		return this.__config.has(key) ?
-			this.__config.get(key).value : undefined;
+		return this.entries.has(key) ?
+			this.entries.get(key).value : undefined;
 	}
 
 	getMeta(key: string): MetaConfig {
-		return this.__config.get(key)
+		return this.entries.get(key)
 	}
 
+	/**
+	 * Set key's value
+	 * @param  {string} key      Key to set
+	 * @param  {any} value    Value to set
+	 * @param  {boolean} autosave Save into storage
+	 */
 	set(key: string, value: any, autosave: boolean = true): this {
 
-		if (this.__config.has(key)) {
+		if (this.entries.has(key)) {
 
-			const config = this.__config.get(key);
+			const config = this.entries.get(key);
 
 			// if (conf.__hook) {
 			if (config instanceof Hook) {
 				config.hook.hostModule.config.set(config.referenceKey, value);
 			} else {
 				config.value = value;
-				this.__config.set(key, config);
+				this.entries.set(key, config);
 			}
 		}
 
@@ -62,7 +72,7 @@ export class Config {
 	 * @return {string[]} Array o keys
 	 */
 	keys(): string[] {
-		return Array.from(this.__config.keys());
+		return Array.from(this.entries.keys());
 	}
 
 	/**
@@ -71,7 +81,7 @@ export class Config {
 	 * @return {boolean}
 	 */
 	has(key: string): boolean {
-		return this.__config.has(key)
+		return this.entries.has(key)
 	}
 
 	/**
@@ -81,9 +91,9 @@ export class Config {
 	 * @return {this} Allow method chaining
 	 */
 	reset(key: string, autosave: boolean = true): this {
-		let conf = this.__config.get(key);
+		let conf = this.entries.get(key);
 		conf.value = conf.defaultValue;
-		this.__config.set(key, conf);
+		this.entries.set(key, conf);
 
 		if (autosave === true)
 			this.saveConfig();
@@ -118,10 +128,10 @@ export class Config {
 	 */
 	define(key: string, conf: MetaConfigType): this {
 
-		if (this.__config.has(key))
+		if (this.entries.has(key))
 			throw 'Config key already exists';
 
-		this.__config.set(key, new MetaConfig(this.hostModule, key, conf));
+		this.entries.set(key, new MetaConfig(this.hostModule, key, conf));
 
 		// Allow method chaining
 		return this;
@@ -132,7 +142,7 @@ export class Config {
 	 * @param key [description]
 	 */
 	undefine(key: string): void {
-		this.__config.delete(key)
+		this.entries.delete(key)
 
 		let storagedConfig = this.hostModule.storage.get('config');
 		delete storagedConfig[key];
@@ -148,7 +158,7 @@ export class Config {
 		if (!hookModule.config.has(key))
 			throw 'Config hook key does not exists';
 
-		if (this.__config.has(newKey))
+		if (this.entries.has(newKey))
 			throw 'Config hook newKey already exists';
 
 		let chook = new Hook(
@@ -157,7 +167,7 @@ export class Config {
 			config
 		);
 
-		this.__config.set(newKey, chook);
+		this.entries.set(newKey, chook);
 
 		// Allow method chaining
 		return this;
@@ -201,7 +211,7 @@ export class Config {
 		Object.keys(new_config).forEach((key) => {
 
 			// set value if key is defined
-			if (this.__config.has(key)) {
+			if (this.entries.has(key)) {
 				this.set(key, new_config[key], false);
 			}
 		});
@@ -215,7 +225,7 @@ export class Config {
 		const config = {};
 
 		this.keys().forEach(key => {
-			let conf = this.__config.get(key);
+			let conf = this.entries.get(key);
 
 			if (!(conf instanceof Hook) && !conf.flags.isset('WIDGET'))
 				config[key] = conf.value;
