@@ -106,8 +106,6 @@ export class DevTerminal {
 	pressedKeysHandler(key: string, ev: KeyboardEvent) {
 		const printable = charIsPrintable(ev.keyCode);
 
-		console.log(ev, key, printable);
-
 		if (ev.keyCode === 13) {
 
 			this.terminal.writeln('');
@@ -171,9 +169,7 @@ export class DevTerminal {
 
 	parseCommand(fullCommand: string) {
 		const commandParts = fullCommand.trim()
-			.split(' ').filter(c => c.length);
-
-		console.log(commandParts);
+			.split(' ').filter(c => c.length);;
 
 		if (commandParts.length === 0)
 			return;
