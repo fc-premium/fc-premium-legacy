@@ -10,8 +10,8 @@ import {
 } from '../module'
 
 import { GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS } from '../definitions'
-import { Utils } from '../utils'
-import { FC } from '../fc_api'
+// import  } from '../utils' // Temp
+import { FC } from '../fc-api'
 import { ResourceHandler } from './resource-handler'
 import { Module, ModuleParameters } from '../module'
 
@@ -77,9 +77,9 @@ MODULE.onload = function() {
 }
 
 function contextEval(source: string): Module {
-	return (function(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
+	return (function(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS) {
 		return eval(source);
-	})(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, Utils, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS);
+	})(Debug, LocalStorage, Config, FlagHandler, CSSHandler, Module, FC, ModuleHandler, GLOBAL_ENTRY_NAME, VERSION_HASH, NO_CACHE_HEADERS);
 }
 
 export class ModuleHandler {
