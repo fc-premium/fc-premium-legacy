@@ -1,5 +1,3 @@
-/// <reference path="../types/tampermonkey.d.ts" />
-
 import * as SHA from 'sha.js'
 
 window = unsafeWindow;

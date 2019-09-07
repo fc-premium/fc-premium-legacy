@@ -1,6 +1,3 @@
-/// <reference path="../../types/mousetrap.d.ts" />
-/// <reference path="../../types/swal2.d.ts" />
-
 import {
 	SETTINGS_BUTTON_TAG,
 	TERMINAL_BUTTON_TAG,

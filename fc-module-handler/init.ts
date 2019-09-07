@@ -1,5 +1,3 @@
-/// <reference path="../node_modules/@types/jquery/index.d.ts" />
-
 import { VERSION_HASH } from './definitions'
 import { ModuleHandler } from './module-handler'
 import { CONTROL_PANEL_MODULE } from './control-panel'

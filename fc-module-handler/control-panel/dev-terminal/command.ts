@@ -1,5 +1,3 @@
-/// <reference path="../../../types/xterm.d.ts" />
-
 export class Command {
 
 	public readonly binary: string;

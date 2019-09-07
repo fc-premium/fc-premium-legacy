@@ -1,6 +1,3 @@
-/// <reference path="../../types/mousetrap.d.ts" />
-/// <reference path="../../types/swal2.d.ts" />
-
 import { Config, MetaConfig, MetaConfigType } from '../module'
 import { Module } from '../module'
 import { VERSION_HASH } from '../definitions'
