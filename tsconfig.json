@@ -9,7 +9,8 @@
 		"removeComments": true,
 
 		"typeRoots": [
-			"./types/"
+			"./types/",
+			"./node_types/@types"
 		],
 		"watch": true
 	},
