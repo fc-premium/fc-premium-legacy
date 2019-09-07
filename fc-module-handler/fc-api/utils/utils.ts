@@ -20,44 +20,15 @@ export class Utils {
 	}
 
 	static removeTildesFromString(value: string): string {
-		return value.normalize('NFD')
-			.replace(/[\u0300-\u036f]/g, "");
+		return value.removeTildes();
 	}
 
-	static formToDataString(form: FormData) {
-		return Array.from(<any>form).reduce((a, b) =>
-			(typeof a == 'string' ? `${a}&` : `${a[0]}=${escape(a[1])}&`) +
-			`${b[0]}=${escape(b[1])}`
-		);
+	static formToDataString(form: FormData): string {
+		return form.toDataString();
 	}
 
 	static arrayBinarySearch(array: Array<any>, value: any, comp: Function = null, valueGetter: Function = null): number {
-		let lastPos = 0;
-		let pos = Math.round(array.length / 2);
-		let foundAt = -1;
-
-		valueGetter = typeof valueGetter === null ?
-			(v: any) => v : valueGetter;
-
-		comp = typeof comp === null ?
-			(a: any, b: any) => a - b : comp;
-
-		while (foundAt == -1 && pos < array.length) {
-			const v = valueGetter(array[pos]);
-			const r = comp(v, value);
-
-			if (r < 0) {
-				pos += Math.round((lastPos + pos) / 2);
-			} else if (r > 0) {
-				pos -= Math.round((lastPos + pos) / 2);
-			} else {
-				foundAt = pos;
-			}
-
-			lastPos = pos;
-		}
-
-		return foundAt;
+		return array.binarySearch(value, comp, valueGetter);
 	}
 
 	static jsonSafeParse(json: string): any {
