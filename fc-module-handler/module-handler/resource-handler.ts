@@ -3,8 +3,6 @@ import { NO_CACHE_HEADERS } from '../definitions'
 export class ResourceHandler {
 	static parseUrl(link: string) {
 
-		let url: URL = null;
-
 		// TODO: Change this
 		if (link[0] === '#')
 			return null;
@@ -15,7 +13,7 @@ export class ResourceHandler {
 			if (priorizate)
 				link = link.slice(1);
 
-			url = new URL(link);
+			const url = new URL(link);
 
 			const protocol = url.protocol;
 			const pathname = url.pathname.replace('//', '/');
@@ -32,11 +30,11 @@ export class ResourceHandler {
 			// TODO: Allow priorization
 			// url.priorizate = priorizate;
 
-		} catch (err) {
-			url = null;
-		}
+			return url;
 
-		return url;
+		} catch (err) {
+			return null;
+		}
 	}
 
 	static async unpackJSONlinks(resources: Array<string>): Promise<Array<[string | string[], number]>> { // Unpack json links
