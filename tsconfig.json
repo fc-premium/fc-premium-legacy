@@ -10,7 +10,7 @@
 
 		"typeRoots": [
 			"./types/",
-			"./node_types/@types"
+			"./node_modules/@types"
 		],
 		"watch": true
 	},
