@@ -1242,6 +1242,38 @@ Urls.forumDisplay = new URL('https://www.forocoches.com/foro/forumdisplay.php?f=
 Urls.showThread = new URL('https://www.forocoches.com/foro/showthread.php?t=');
 
 // CONCATENATED MODULE: ./out/fc-api/utils.js
+String.prototype.removeTildes = function () {
+    return this.normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, "");
+};
+FormData.prototype.toDataString = function () {
+    return Array.from(this).reduce((a, b) => (typeof a == 'string' ? `${a}&` : `${a[0]}=${escape(a[1])}&`) +
+        `${b[0]}=${escape(b[1])}`);
+};
+Array.prototype.binarySearch = function (value, valueGetter = null, comp = null) {
+    let lastPos = 0;
+    let pos = Math.round(this.length / 2);
+    let foundAt = -1;
+    valueGetter = typeof valueGetter !== 'function' ?
+        (v) => v : valueGetter;
+    comp = typeof comp !== 'function' ?
+        (a, b) => a - b : comp;
+    while (foundAt == -1 && pos < this.length) {
+        let v = valueGetter(this[pos]);
+        let r = comp(v, value);
+        if (r < 0) {
+            pos += Math.round((lastPos + pos) / 2);
+        }
+        else if (r > 0) {
+            pos -= Math.round((lastPos + pos) / 2);
+        }
+        else {
+            foundAt = pos;
+        }
+        lastPos = pos;
+    }
+    return foundAt;
+};
 class Utils {
     static utf8ToIso(arrayBuffer) {
         let encoder = new TextDecoder("ISO-8859-1");
@@ -1882,14 +1914,13 @@ fc_api_FC.Utils = Utils;
 
 class ResourceHandler {
     static parseUrl(link) {
-        let url = null;
         if (link[0] === '#')
             return null;
         try {
             const priorizate = link[0] === '!';
             if (priorizate)
                 link = link.slice(1);
-            url = new URL(link);
+            const url = new URL(link);
             const protocol = url.protocol;
             const pathname = url.pathname.replace('//', '/');
             url.protocol = 'https:';
@@ -1899,11 +1930,11 @@ class ResourceHandler {
                     url.hostname = 'raw.githubusercontent.com';
                     break;
             }
+            return url;
         }
         catch (err) {
-            url = null;
+            return null;
         }
-        return url;
     }
     static async unpackJSONlinks(resources) {
         return Promise.all(resources.map((link, index) => new Promise(function (resolve) {
@@ -5679,7 +5710,22 @@ CONTROL_PANEL_MODULE.onload = function () {
 
 
 
-console.log(`Version hash: ${definitions["c" /* VERSION_HASH */]}`);
+function asciiBox(lines, minBoxWidth = 0) {
+    let result = '';
+    const boxWidth = Math.max(minBoxWidth, ...lines.map(x => x.length + 2));
+    const header = '+'.padEnd(boxWidth, '=') + '+';
+    lines.forEach((line) => {
+        result += '|' + line.padEnd(boxWidth - 1, ' ') + '|\n';
+    });
+    return header + '\n' + result + header;
+}
+;
+console.log(asciiBox([
+    ` Title   : ${GM_info.script.name}`, '',
+    ` Version : ${GM_info.script.version}`,
+    ` Hash    : [${definitions["c" /* VERSION_HASH */].slice(0, 8)}]`, '',
+    ` By      : ${GM_info.script.author}`, '',
+], 40));
 (GM_info.script.resources).forEach((resource) => {
     if (resource.name.endsWith('.css'))
         GM_addStyle(resource.content);
