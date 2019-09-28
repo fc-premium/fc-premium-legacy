@@ -31,7 +31,7 @@ MODULE.config.define('LAST_VERSION_HASH', {
 }).define('RESOURCES', <MetaConfigType>{
 	title: 'User resources',
 	defaultValue: [
-		'rgh:Pytness/fc-modules/master/modules/defaultSources.json'
+		'rgh:fc-premium/fc-premium/master/modules/defaultSources.json'
 	],
 	flags: ['CONFIGURABLE'],
 
