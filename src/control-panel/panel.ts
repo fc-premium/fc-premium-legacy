@@ -257,14 +257,14 @@ export class Panel {
 
 				// Add config button
 
-				const terminalButton = $(TERMINAL_BUTTON_TAG);
-
-				$(modal).find('.swal2-close')
-					.before(terminalButton);
-
-				terminalButton.on('click', () =>
-					self.showTerminal()
-				);
+				// const terminalButton = $(TERMINAL_BUTTON_TAG);
+				//
+				// $(modal).find('.swal2-close')
+				// 	.before(terminalButton);
+				//
+				// terminalButton.on('click', () =>
+				// 	self.showTerminal()
+				// );
 
 				const settingsButton = $(SETTINGS_BUTTON_TAG);
 

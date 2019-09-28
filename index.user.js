@@ -2,7 +2,7 @@
 // @name           FC Premium
 // @description    Script para administrar addons para forocoches.com
 // @author         @pytness
-// @version        3.0.2
+// @version        3.0.3
 // @namespace      http://tampermonkey.net/
 
 // @match          https://*.forocoches.com/*
@@ -13,13 +13,13 @@
 // @require        https://cdnjs.cloudflare.com/ajax/libs/mousetrap/1.6.2/mousetrap.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.js
 
-// @resource       styles.css https://raw.githubusercontent.com/Pytness/fc-modules/master/resources/styles.css
+// @resource       styles.css https://raw.githubusercontent.com/fc-premium/fc-premium/master/resources/styles.css
 // @resource       noty.css https://cdnjs.cloudflare.com/ajax/libs/noty/3.1.4/noty.min.css
 // @resource       xterm.css https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.css
 // @resource       material_icons.css https://fonts.googleapis.com/icon?family=Material+Icons
 
-// @updateURL      https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js
-// @downloadURL    https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js
+// @updateURL      https://raw.githubusercontent.com/fc-premium/fc-premium/master/index.user.js
+// @downloadURL    https://raw.githubusercontent.com/fc-premium/fc-premium/master/index.user.js
 
 // @grant unsafeWindow
 // @grant GM_addStyle
@@ -5430,10 +5430,6 @@ class Panel {
             customClass: 'with-max-height',
             onOpen: (modal) => {
                 modal.focus();
-                const terminalButton = $(_constants__WEBPACK_IMPORTED_MODULE_0__["TERMINAL_BUTTON_TAG"]);
-                $(modal).find('.swal2-close')
-                    .before(terminalButton);
-                terminalButton.on('click', () => self.showTerminal());
                 const settingsButton = $(_constants__WEBPACK_IMPORTED_MODULE_0__["SETTINGS_BUTTON_TAG"]);
                 $(modal).find('.swal2-close')
                     .before(settingsButton);
