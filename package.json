@@ -14,6 +14,7 @@
     "@types/jquery": "^3.3.30",
     "@types/sha.js": "^2.4.0",
     "ansi-escapes": "^4.2.1",
+    "raw-loader": "^3.1.0",
     "sha.js": "^2.4.11",
     "vue": "^2.6.10"
   }
