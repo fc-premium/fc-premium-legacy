@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name           FC Script Handler
-// @description    Modular script
-// @author         pytness
+// @name           FC Premium
+// @description    Script para administrar addons para forocoches.com
+// @author         @pytness
 // @version        3.0.2
 // @namespace      http://tampermonkey.net/
 
@@ -142,6 +142,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
 /* harmony import */ var _module_handler__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(17);
 /* harmony import */ var _control_panel__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(46);
+/* harmony import */ var _octokit_rest__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(54);
+/* harmony import */ var _octokit_rest__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(_octokit_rest__WEBPACK_IMPORTED_MODULE_3__);
 
 
 
@@ -167,6 +169,18 @@ console.log(asciiBox([
 });
 _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].push(_control_panel__WEBPACK_IMPORTED_MODULE_2__["CONTROL_PANEL_MODULE"]);
 _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].loadModules();
+
+const octokit = new _octokit_rest__WEBPACK_IMPORTED_MODULE_3___default.a({
+    auth: '41738453f108f86f1b4f9dae3d774e74e790ea08'
+});
+function listFCModules() {
+    octokit.repos.listReleases({
+        owner: 'pytness',
+        repo: '__fc-modules'
+    }).then(console.log)
+        .catch(console.error);
+}
+listFCModules();
 
 
 /***/ }),
@@ -5256,14 +5270,211 @@ CONTROL_PANEL_MODULE.onload = function () {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "Panel", function() { return Panel; });
+/* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(49);
+/* harmony import */ var _module_handler__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(17);
+/* harmony import */ var _dev_terminal_terminal__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(50);
+
+
+
 class Panel {
     constructor(module) {
         this.MODULE = module;
     }
-    saveConfigDialog(modal) { }
-    async showModuleConfigDialog(moduleName) {
+    saveConfigDialog(modal) {
+        let moduleName = $(modal).find('#swal2-title')
+            .attr('moduleName');
+        let module = _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].get(moduleName);
+        $(modal).find('tr.section, tr.section+tr').each(({}, tr) => {
+            let tds = $(tr).find('td').toArray();
+            if (tds.length > 2)
+                tds.shift();
+            let key = tds[0].getAttribute('key');
+            const meta = module.config.getMeta(key);
+            if (meta.flags.isset('WIDGET'))
+                return;
+            module.config.set(key, meta.parseHTML($(tds[1])));
+        });
     }
-    async showModuleListDialog() { }
+    async showModuleConfigDialog(moduleName) {
+        const self = this;
+        let module = _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].get(moduleName);
+        let html = $('<div>');
+        let table = $('<table class="module_menu config_tab"><tr class="title"><td>Section</td><td>Key</td><td>Value</td></tr></table>');
+        let keys = module.config.keys();
+        keys.splice(keys.indexOf('ENABLED'), 1);
+        let sectionsMap = new Map();
+        keys.forEach((key) => {
+            const section = module.config.getMeta(key).section;
+            if (!sectionsMap.has(section))
+                sectionsMap.set(section, []);
+            sectionsMap.get(section)
+                .push(key);
+        });
+        let sectionsArray = (function () {
+            const DEBUG_SECTION_NAME = 'Debug';
+            const DEBUG_SECTION = sectionsMap.get(DEBUG_SECTION_NAME);
+            sectionsMap.delete(DEBUG_SECTION_NAME);
+            let _ = Array.from(sectionsMap.entries());
+            if (self.MODULE.config.get('DEV_MODE'))
+                _.push([DEBUG_SECTION_NAME, DEBUG_SECTION]);
+            return _;
+        })();
+        sectionsArray.forEach(([section, keys]) => {
+            keys.forEach((key, i) => {
+                let metaConfig = module.config.getMeta(key);
+                if (metaConfig !== undefined && (metaConfig.flags.isset('CONFIGURABLE') || metaConfig.flags.isset('WIDGET'))) {
+                    let tr = $(`<tr><td key="${key}"><span ctitle></span><span reset_tag></span></td><td cvalue></td></tr>`);
+                    tr.find(`[ctitle]`).html(metaConfig.title);
+                    if (metaConfig.description !== undefined)
+                        tr.find(`[key="${key}"]`).attr('title', metaConfig.description);
+                    if (!metaConfig.flags.isset('WIDGET'))
+                        tr.find(`[reset_tag]`).html(_constants__WEBPACK_IMPORTED_MODULE_0__["RESET_BUTTON_TAG"]);
+                    let htmlElement = metaConfig.getHTML();
+                    $(tr.find('td[cvalue]')[0]).append(htmlElement);
+                    table.append(tr);
+                    if (i === 0) {
+                        tr.addClass('section');
+                        $(tr.find('td')[0])
+                            .before(`<td rowspan="${keys.length}">${section}</td>`);
+                    }
+                }
+            });
+        });
+        html.append(table);
+        let modal = null;
+        return Swal.fire({
+            title: module.info.title,
+            html: html,
+            heightAuto: false,
+            showConfirmButton: true,
+            showCancelButton: true,
+            reverseButtons: true,
+            cancelButtonColor: '#E03A3A',
+            animation: false,
+            customClass: 'with-max-height swal-wide',
+            onOpen: function (_modal) {
+                modal = _modal;
+                modal.focus();
+                $(modal).find('.swal2-title')
+                    .attr('moduleName', moduleName);
+                $(modal).find('.swal2-title')
+                    .append($(`${_constants__WEBPACK_IMPORTED_MODULE_0__["backButton"]}`));
+                $(modal).find('.swal2-title').css({
+                    'left': '32px'
+                });
+                $(modal).on('click', '.swal2-close.backbutton', function () {
+                    self.saveConfigDialog(modal);
+                    Swal.close();
+                    self.showModuleListDialog();
+                });
+                module.config.keys().forEach((key) => {
+                    let config = module.config.getMeta(key);
+                    let valueHTML = $(modal).find(`tr:has(td[key="${key}"]) td[cvalue]`)[0];
+                    if (valueHTML === undefined)
+                        return;
+                    config.dispatchEvent('HTMLAppended', valueHTML);
+                    if (!config.flags.isset('WIDGET')) {
+                        let resetButton = $(modal).find(`td[key="${key}"] span.reset-button`)[0];
+                        resetButton.addEventListener('click', function () {
+                            module.config.reset(key, false);
+                            config.dispatchEvent('reset');
+                            let html = $(valueHTML);
+                            html.children().remove();
+                            html.append(module.config.getMeta(key).getHTML());
+                            config.dispatchEvent('HTMLAppended', valueHTML);
+                        });
+                    }
+                });
+            },
+            preConfirm: () => {
+                self.saveConfigDialog(modal);
+            },
+        }).then(result => {
+            if (result.dismiss !== undefined) {
+                module.config.loadSavedConfig();
+                module.config.keys().forEach((key) => module.config.getMeta(key).dispatchEvent('cancel'));
+            }
+        });
+        ;
+    }
+    async showModuleListDialog() {
+        const self = this;
+        let tempTable = $(_constants__WEBPACK_IMPORTED_MODULE_0__["moduleListTable"]);
+        const sortedModuleList = _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].keys()
+            .sort((moduleKeyA, moduleKeyB) => {
+            const moduleTitleA = _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].get(moduleKeyA).info.title;
+            const moduleTitleB = _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].get(moduleKeyB).info.title;
+            return moduleTitleA.localeCompare(moduleTitleB);
+        });
+        sortedModuleList.splice(sortedModuleList.indexOf('CONTROL_PANEL'), 1);
+        sortedModuleList.splice(sortedModuleList.indexOf('MODULE_HANDLER'), 1);
+        sortedModuleList.forEach((moduleName) => {
+            let module = _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].get(moduleName);
+            const html = $(`<tr id='${module.name}'>
+					<td><span>${module.info.title}</span></td>
+					<td>${module.info.version}</td>
+					<td></td>
+				</tr>`);
+            $(html.find('td')[2]).append(module.config.getMeta('ENABLED')
+                .getHTML());
+            html.find('td')[0].setAttribute('title', module.info.description);
+            tempTable.append(html);
+        });
+        return Swal.fire({
+            title: 'Config panel',
+            html: tempTable,
+            heightAuto: false,
+            showConfirmButton: false,
+            showCloseButton: true,
+            animation: false,
+            customClass: 'with-max-height',
+            onOpen: (modal) => {
+                modal.focus();
+                const terminalButton = $(_constants__WEBPACK_IMPORTED_MODULE_0__["TERMINAL_BUTTON_TAG"]);
+                $(modal).find('.swal2-close')
+                    .before(terminalButton);
+                terminalButton.on('click', () => self.showTerminal());
+                const settingsButton = $(_constants__WEBPACK_IMPORTED_MODULE_0__["SETTINGS_BUTTON_TAG"]);
+                $(modal).find('.swal2-close')
+                    .before(settingsButton);
+                settingsButton.on('click', () => this.showModuleConfigDialog('CONTROL_PANEL'));
+                $(modal).find('tr').each(({}, tr) => {
+                    let span = $(tr).find('span')[0];
+                    if (span !== undefined) {
+                        span.addEventListener('click', function () {
+                            self.showModuleConfigDialog(tr.id);
+                        });
+                    }
+                });
+                _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].keys().forEach((moduleName) => {
+                    const td = $($(modal).find(`tr[id="${moduleName}"] td`)[2]);
+                    if (td === undefined)
+                        return;
+                    const module = _module_handler__WEBPACK_IMPORTED_MODULE_1__["ModuleHandler"].get(moduleName);
+                    const config = module.config.getMeta('ENABLED');
+                    td.find('input').on('change', function () {
+                        let enabled = config.parseHTML(td);
+                        module.config.set('ENABLED', enabled);
+                    });
+                });
+            }
+        });
+    }
+    async showTerminal() {
+        return Swal.fire({
+            title: 'Config panel',
+            html: '<div id="terminal"></div>',
+            heightAuto: false,
+            showConfirmButton: false,
+            showCloseButton: true,
+            animation: false,
+            customClass: 'with-max-height swal-wide',
+            onOpen: ({}) => {
+                const terminal = new _dev_terminal_terminal__WEBPACK_IMPORTED_MODULE_2__["DevTerminal"]('#terminal');
+                terminal.init();
+            }
+        });
+    }
 }
 
 
@@ -5283,6 +5494,5853 @@ const TERMINAL_BUTTON_TAG = `<i class="material-icons config-button" style="marg
 const RESET_BUTTON_TAG = `<span class="reset-button" title="Reset value"></span>`;
 const moduleListTable = '<table class="module_menu"><tr class="title"><td>Name</td><td>Version</td><td>Enabled</td></tr></table>';
 const backButton = '<span class="swal2-close backbutton"></span>';
+
+
+/***/ }),
+/* 50 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "DevTerminal", function() { return DevTerminal; });
+/* harmony import */ var ansi_escapes__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(51);
+/* harmony import */ var ansi_escapes__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(ansi_escapes__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _command__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(53);
+
+
+var ParseType;
+(function (ParseType) {
+    ParseType[ParseType["COMMAND"] = 0] = "COMMAND";
+    ParseType[ParseType["JAVASCRIPT"] = 1] = "JAVASCRIPT";
+})(ParseType || (ParseType = {}));
+;
+function charIsPrintable(keycode) {
+    const valid = (keycode > 47 && keycode < 58) ||
+        keycode == 32 || keycode == 13 ||
+        (keycode > 64 && keycode < 91) ||
+        (keycode > 95 && keycode < 112) ||
+        (keycode > 185 && keycode < 193) ||
+        (keycode > 218 && keycode < 223);
+    return valid;
+}
+const PROMPT_LENGTH = 2;
+const commandList = new _command__WEBPACK_IMPORTED_MODULE_1__["CommandList"]();
+commandList.declareMultiple([
+    new _command__WEBPACK_IMPORTED_MODULE_1__["Command"]('help', 'Shows this help', function (...args) {
+        if (args.length === 0) {
+            commandList.getCommandList().forEach(binary => this.terminal.writeln(`${binary}: ${commandList.get(binary).description}`));
+        }
+        else {
+            if (commandList.has(args[0])) {
+                this.terminal.writeln(`${args[0]} ${commandList.get(args[0]).description}`);
+            }
+            else {
+                this.terminal.writeln(`${args[0]} not found`);
+            }
+        }
+    }),
+    new _command__WEBPACK_IMPORTED_MODULE_1__["Command"]('clear', 'Clears screen', function () {
+        this.terminal.write(ansi_escapes__WEBPACK_IMPORTED_MODULE_0__["clearScreen"]);
+    }),
+    new _command__WEBPACK_IMPORTED_MODULE_1__["Command"]('echo', 'Writes its arguments to screen', function (...args) {
+        this.terminal.writeln(args.join(' '));
+    })
+]);
+class DevTerminal {
+    constructor(selector) {
+        this.parseType = ParseType.COMMAND;
+        this.commandHistory = [];
+        this.historyIndex = 0;
+        this.selector = selector;
+        this.terminal = new Terminal({
+            cursorBlink: true,
+            cursorStyle: 'bar',
+            convertEol: true
+        });
+    }
+    init(autofocus = true) {
+        if (typeof this.selector === 'string')
+            this.terminal.open(document.querySelector(this.selector));
+        else
+            this.terminal.open(this.selector);
+        this.terminal.writeln('Not implemented yet');
+        this.terminal.on('key', (key, ev) => this.pressedKeysHandler(key, ev));
+        this.terminal.on('paste', function (data) {
+            this.terminal.write(data);
+        });
+        this.prompt();
+        if (autofocus)
+            this.terminal.focus();
+    }
+    prompt() {
+        if (this.parseType === ParseType.COMMAND)
+            this.terminal.write('# ');
+        else if (this.parseType === ParseType.JAVASCRIPT)
+            this.terminal.write('> ');
+    }
+    pressedKeysHandler(key, ev) {
+        const printable = charIsPrintable(ev.keyCode);
+        if (ev.keyCode === 13) {
+            this.terminal.writeln('');
+            const line = this.terminal.buffer
+                .getLine(this.terminal.buffer.cursorY)
+                .translateToString()
+                .slice(PROMPT_LENGTH).trim();
+            this.historyIndex = 0;
+            this.commandHistory.push(line);
+            this.parseCommand(line);
+            this.prompt();
+        }
+        else if (ev.keyCode === 8) {
+            if (this.terminal.buffer.cursorX > PROMPT_LENGTH)
+                this.terminal.write('\b \b');
+        }
+        else if (printable) {
+            this.terminal.write(key);
+        }
+        else {
+            switch (ev.code) {
+                case 'Escape': {
+                    this.terminal.blur();
+                    break;
+                }
+                case 'Home': {
+                    this.terminal.write(ansi_escapes__WEBPACK_IMPORTED_MODULE_0__["cursorTo"](2));
+                    break;
+                }
+                case 'End': {
+                    let lineLength = this.terminal.buffer
+                        .getLine(this.terminal.buffer.cursorY)
+                        .translateToString().trim().length;
+                    if (lineLength < PROMPT_LENGTH)
+                        lineLength = PROMPT_LENGTH;
+                    this.terminal.write(ansi_escapes__WEBPACK_IMPORTED_MODULE_0__["cursorTo"](lineLength));
+                    break;
+                }
+                case 'ArrowLeft': {
+                    if (this.terminal.buffer.cursorX > PROMPT_LENGTH)
+                        this.terminal.write(ansi_escapes__WEBPACK_IMPORTED_MODULE_0__["cursorBackward"]());
+                    break;
+                }
+                case 'ArrowRight': {
+                    const lineLength = this.terminal.buffer
+                        .getLine(this.terminal.buffer.cursorY)
+                        .translateToString().trim().length;
+                    if (this.terminal.buffer.cursorX < lineLength)
+                        this.terminal.write(ansi_escapes__WEBPACK_IMPORTED_MODULE_0__["cursorForward"]());
+                    break;
+                }
+            }
+        }
+    }
+    parseCommand(fullCommand) {
+        const commandParts = fullCommand.trim()
+            .split(' ').filter(c => c.length);
+        ;
+        if (commandParts.length === 0)
+            return;
+        const binary = commandParts[0].toLowerCase();
+        if (commandList.has(binary)) {
+            commandList.get(binary).callback.bind(this)(...commandParts.slice(1));
+        }
+        else {
+            this.terminal.writeln(`Command "${fullCommand}" not found`);
+        }
+    }
+}
+
+
+/***/ }),
+/* 51 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function(process) {
+const ansiEscapes = module.exports;
+// TODO: remove this in the next major version
+module.exports.default = ansiEscapes;
+
+const ESC = '\u001B[';
+const OSC = '\u001B]';
+const BEL = '\u0007';
+const SEP = ';';
+const isTerminalApp = process.env.TERM_PROGRAM === 'Apple_Terminal';
+
+ansiEscapes.cursorTo = (x, y) => {
+	if (typeof x !== 'number') {
+		throw new TypeError('The `x` argument is required');
+	}
+
+	if (typeof y !== 'number') {
+		return ESC + (x + 1) + 'G';
+	}
+
+	return ESC + (y + 1) + ';' + (x + 1) + 'H';
+};
+
+ansiEscapes.cursorMove = (x, y) => {
+	if (typeof x !== 'number') {
+		throw new TypeError('The `x` argument is required');
+	}
+
+	let ret = '';
+
+	if (x < 0) {
+		ret += ESC + (-x) + 'D';
+	} else if (x > 0) {
+		ret += ESC + x + 'C';
+	}
+
+	if (y < 0) {
+		ret += ESC + (-y) + 'A';
+	} else if (y > 0) {
+		ret += ESC + y + 'B';
+	}
+
+	return ret;
+};
+
+ansiEscapes.cursorUp = (count = 1) => ESC + count + 'A';
+ansiEscapes.cursorDown = (count = 1) => ESC + count + 'B';
+ansiEscapes.cursorForward = (count = 1) => ESC + count + 'C';
+ansiEscapes.cursorBackward = (count = 1) => ESC + count + 'D';
+
+ansiEscapes.cursorLeft = ESC + 'G';
+ansiEscapes.cursorSavePosition = isTerminalApp ? '\u001B7' : ESC + 's';
+ansiEscapes.cursorRestorePosition = isTerminalApp ? '\u001B8' : ESC + 'u';
+ansiEscapes.cursorGetPosition = ESC + '6n';
+ansiEscapes.cursorNextLine = ESC + 'E';
+ansiEscapes.cursorPrevLine = ESC + 'F';
+ansiEscapes.cursorHide = ESC + '?25l';
+ansiEscapes.cursorShow = ESC + '?25h';
+
+ansiEscapes.eraseLines = count => {
+	let clear = '';
+
+	for (let i = 0; i < count; i++) {
+		clear += ansiEscapes.eraseLine + (i < count - 1 ? ansiEscapes.cursorUp() : '');
+	}
+
+	if (count) {
+		clear += ansiEscapes.cursorLeft;
+	}
+
+	return clear;
+};
+
+ansiEscapes.eraseEndLine = ESC + 'K';
+ansiEscapes.eraseStartLine = ESC + '1K';
+ansiEscapes.eraseLine = ESC + '2K';
+ansiEscapes.eraseDown = ESC + 'J';
+ansiEscapes.eraseUp = ESC + '1J';
+ansiEscapes.eraseScreen = ESC + '2J';
+ansiEscapes.scrollUp = ESC + 'S';
+ansiEscapes.scrollDown = ESC + 'T';
+
+ansiEscapes.clearScreen = '\u001Bc';
+
+ansiEscapes.clearTerminal = process.platform === 'win32' ?
+	`${ansiEscapes.eraseScreen}${ESC}0f` :
+	// 1. Erases the screen (Only done in case `2` is not supported)
+	// 2. Erases the whole screen including scrollback buffer
+	// 3. Moves cursor to the top-left position
+	// More info: https://www.real-world-systems.com/docs/ANSIcode.html
+	`${ansiEscapes.eraseScreen}${ESC}3J${ESC}H`;
+
+ansiEscapes.beep = BEL;
+
+ansiEscapes.link = (text, url) => {
+	return [
+		OSC,
+		'8',
+		SEP,
+		SEP,
+		url,
+		BEL,
+		text,
+		OSC,
+		'8',
+		SEP,
+		SEP,
+		BEL
+	].join('');
+};
+
+ansiEscapes.image = (buffer, options = {}) => {
+	let ret = `${OSC}1337;File=inline=1`;
+
+	if (options.width) {
+		ret += `;width=${options.width}`;
+	}
+
+	if (options.height) {
+		ret += `;height=${options.height}`;
+	}
+
+	if (options.preserveAspectRatio === false) {
+		ret += ';preserveAspectRatio=0';
+	}
+
+	return ret + ':' + buffer.toString('base64') + BEL;
+};
+
+ansiEscapes.iTerm = {
+	setCwd: (cwd = process.cwd()) => `${OSC}50;CurrentDir=${cwd}${BEL}`
+};
+
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(52)))
+
+/***/ }),
+/* 52 */
+/***/ (function(module, exports) {
+
+// shim for using process in browser
+var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
+var queue = [];
+var draining = false;
+var currentQueue;
+var queueIndex = -1;
+
+function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
+    draining = false;
+    if (currentQueue.length) {
+        queue = currentQueue.concat(queue);
+    } else {
+        queueIndex = -1;
+    }
+    if (queue.length) {
+        drainQueue();
+    }
+}
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    var timeout = runTimeout(cleanUpNextTick);
+    draining = true;
+
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        while (++queueIndex < len) {
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
+        }
+        queueIndex = -1;
+        len = queue.length;
+    }
+    currentQueue = null;
+    draining = false;
+    runClearTimeout(timeout);
+}
+
+process.nextTick = function (fun) {
+    var args = new Array(arguments.length - 1);
+    if (arguments.length > 1) {
+        for (var i = 1; i < arguments.length; i++) {
+            args[i - 1] = arguments[i];
+        }
+    }
+    queue.push(new Item(fun, args));
+    if (queue.length === 1 && !draining) {
+        runTimeout(drainQueue);
+    }
+};
+
+// v8 likes predictible objects
+function Item(fun, array) {
+    this.fun = fun;
+    this.array = array;
+}
+Item.prototype.run = function () {
+    this.fun.apply(null, this.array);
+};
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+process.prependListener = noop;
+process.prependOnceListener = noop;
+
+process.listeners = function (name) { return [] }
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+
+/***/ }),
+/* 53 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "Command", function() { return Command; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "CommandList", function() { return CommandList; });
+class Command {
+    constructor(binary, description, callback) {
+        this.binary = binary;
+        this.callback = callback;
+        this.description = description;
+    }
+}
+class CommandList {
+    constructor() {
+        this.commandList = new Map();
+    }
+    declare(command) {
+        this.commandList.set(command.binary, command);
+        return this;
+    }
+    declareMultiple(commands) {
+        commands.forEach(command => this.declare(command));
+        return this;
+    }
+    getCommandList() {
+        return Array.from(this.commandList.keys());
+    }
+    has(binary) {
+        return this.commandList.has(binary);
+    }
+    get(binary) {
+        return this.commandList.get(binary);
+    }
+}
+
+
+/***/ }),
+/* 54 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const Octokit = __webpack_require__(55);
+
+const CORE_PLUGINS = [
+  __webpack_require__(75),
+  __webpack_require__(76), // deprecated: remove in v17
+  __webpack_require__(82),
+  __webpack_require__(88),
+  __webpack_require__(92),
+  __webpack_require__(93),
+  __webpack_require__(95),
+  __webpack_require__(97),
+
+  __webpack_require__(101) // deprecated: remove in v17
+];
+
+module.exports = Octokit.plugin(CORE_PLUGINS);
+
+
+/***/ }),
+/* 55 */
+/***/ (function(module, exports, __webpack_require__) {
+
+const factory = __webpack_require__(56);
+
+module.exports = factory();
+
+
+/***/ }),
+/* 56 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = factory;
+
+const Octokit = __webpack_require__(57);
+const registerPlugin = __webpack_require__(74);
+
+function factory(plugins) {
+  const Api = Octokit.bind(null, plugins || []);
+  Api.plugin = registerPlugin.bind(null, plugins || []);
+  return Api;
+}
+
+
+/***/ }),
+/* 57 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = Octokit;
+
+const { request } = __webpack_require__(58);
+const Hook = __webpack_require__(68);
+
+const parseClientOptions = __webpack_require__(72);
+
+function Octokit(plugins, options) {
+  options = options || {};
+  const hook = new Hook.Collection();
+  const log = Object.assign(
+    {
+      debug: () => {},
+      info: () => {},
+      warn: console.warn,
+      error: console.error
+    },
+    options && options.log
+  );
+  const api = {
+    hook,
+    log,
+    request: request.defaults(parseClientOptions(options, log, hook))
+  };
+
+  plugins.forEach(pluginFunction => pluginFunction(api, options));
+
+  return api;
+}
+
+
+/***/ }),
+/* 58 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "request", function() { return request; });
+/* harmony import */ var _octokit_endpoint__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(59);
+/* harmony import */ var universal_user_agent__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(62);
+/* harmony import */ var is_plain_object__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(60);
+/* harmony import */ var node_fetch__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(63);
+/* harmony import */ var node_fetch__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(node_fetch__WEBPACK_IMPORTED_MODULE_3__);
+/* harmony import */ var _octokit_request_error__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(64);
+
+
+
+
+
+
+const VERSION = "0.0.0-development";
+
+function getBufferResponse(response) {
+    return response.arrayBuffer();
+}
+
+function fetchWrapper(requestOptions) {
+    if (Object(is_plain_object__WEBPACK_IMPORTED_MODULE_2__["default"])(requestOptions.body) ||
+        Array.isArray(requestOptions.body)) {
+        requestOptions.body = JSON.stringify(requestOptions.body);
+    }
+    let headers = {};
+    let status;
+    let url;
+    const fetch = (requestOptions.request && requestOptions.request.fetch) || node_fetch__WEBPACK_IMPORTED_MODULE_3___default.a;
+    return fetch(requestOptions.url, Object.assign({
+        method: requestOptions.method,
+        body: requestOptions.body,
+        headers: requestOptions.headers,
+        redirect: requestOptions.redirect
+    }, requestOptions.request))
+        .then(response => {
+        url = response.url;
+        status = response.status;
+        for (const keyAndValue of response.headers) {
+            headers[keyAndValue[0]] = keyAndValue[1];
+        }
+        if (status === 204 || status === 205) {
+            return;
+        }
+        // GitHub API returns 200 for HEAD requsets
+        if (requestOptions.method === "HEAD") {
+            if (status < 400) {
+                return;
+            }
+            throw new _octokit_request_error__WEBPACK_IMPORTED_MODULE_4__["RequestError"](response.statusText, status, {
+                headers,
+                request: requestOptions
+            });
+        }
+        if (status === 304) {
+            throw new _octokit_request_error__WEBPACK_IMPORTED_MODULE_4__["RequestError"]("Not modified", status, {
+                headers,
+                request: requestOptions
+            });
+        }
+        if (status >= 400) {
+            return response
+                .text()
+                .then(message => {
+                const error = new _octokit_request_error__WEBPACK_IMPORTED_MODULE_4__["RequestError"](message, status, {
+                    headers,
+                    request: requestOptions
+                });
+                try {
+                    Object.assign(error, JSON.parse(error.message));
+                }
+                catch (e) {
+                    // ignore, see octokit/rest.js#684
+                }
+                throw error;
+            });
+        }
+        const contentType = response.headers.get("content-type");
+        if (/application\/json/.test(contentType)) {
+            return response.json();
+        }
+        if (!contentType || /^text\/|charset=utf-8$/.test(contentType)) {
+            return response.text();
+        }
+        return getBufferResponse(response);
+    })
+        .then(data => {
+        return {
+            status,
+            url,
+            headers,
+            data
+        };
+    })
+        .catch(error => {
+        if (error instanceof _octokit_request_error__WEBPACK_IMPORTED_MODULE_4__["RequestError"]) {
+            throw error;
+        }
+        throw new _octokit_request_error__WEBPACK_IMPORTED_MODULE_4__["RequestError"](error.message, 500, {
+            headers,
+            request: requestOptions
+        });
+    });
+}
+
+function withDefaults(oldEndpoint, newDefaults) {
+    const endpoint = oldEndpoint.defaults(newDefaults);
+    const newApi = function (route, parameters) {
+        const endpointOptions = endpoint.merge(route, parameters);
+        if (!endpointOptions.request || !endpointOptions.request.hook) {
+            return fetchWrapper(endpoint.parse(endpointOptions));
+        }
+        const request = (route, parameters) => {
+            return fetchWrapper(endpoint.parse(endpoint.merge(route, parameters)));
+        };
+        Object.assign(request, {
+            endpoint,
+            defaults: withDefaults.bind(null, endpoint)
+        });
+        return endpointOptions.request.hook(request, endpointOptions);
+    };
+    return Object.assign(newApi, {
+        endpoint,
+        defaults: withDefaults.bind(null, endpoint)
+    });
+}
+
+const request = withDefaults(_octokit_endpoint__WEBPACK_IMPORTED_MODULE_0__["endpoint"], {
+    headers: {
+        "user-agent": `octokit-request.js/${VERSION} ${Object(universal_user_agent__WEBPACK_IMPORTED_MODULE_1__["getUserAgent"])()}`
+    }
+});
+
+
+//# sourceMappingURL=index.js.map
+
+
+/***/ }),
+/* 59 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "endpoint", function() { return endpoint; });
+/* harmony import */ var is_plain_object__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(60);
+/* harmony import */ var universal_user_agent__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(62);
+
+
+
+function lowercaseKeys(object) {
+    if (!object) {
+        return {};
+    }
+    return Object.keys(object).reduce((newObj, key) => {
+        newObj[key.toLowerCase()] = object[key];
+        return newObj;
+    }, {});
+}
+
+function mergeDeep(defaults, options) {
+    const result = Object.assign({}, defaults);
+    Object.keys(options).forEach(key => {
+        if (Object(is_plain_object__WEBPACK_IMPORTED_MODULE_0__["default"])(options[key])) {
+            if (!(key in defaults))
+                Object.assign(result, { [key]: options[key] });
+            else
+                result[key] = mergeDeep(defaults[key], options[key]);
+        }
+        else {
+            Object.assign(result, { [key]: options[key] });
+        }
+    });
+    return result;
+}
+
+function merge(defaults, route, options) {
+    if (typeof route === "string") {
+        let [method, url] = route.split(" ");
+        options = Object.assign(url ? { method, url } : { url: method }, options);
+    }
+    else {
+        options = route || {};
+    }
+    // lowercase header names before merging with defaults to avoid duplicates
+    options.headers = lowercaseKeys(options.headers);
+    const mergedOptions = mergeDeep(defaults || {}, options);
+    // mediaType.previews arrays are merged, instead of overwritten
+    if (defaults && defaults.mediaType.previews.length) {
+        mergedOptions.mediaType.previews = defaults.mediaType.previews
+            .filter(preview => !mergedOptions.mediaType.previews.includes(preview))
+            .concat(mergedOptions.mediaType.previews);
+    }
+    mergedOptions.mediaType.previews = mergedOptions.mediaType.previews.map((preview) => preview.replace(/-preview/, ""));
+    return mergedOptions;
+}
+
+function addQueryParameters(url, parameters) {
+    const separator = /\?/.test(url) ? "&" : "?";
+    const names = Object.keys(parameters);
+    if (names.length === 0) {
+        return url;
+    }
+    return (url +
+        separator +
+        names
+            .map(name => {
+            if (name === "q") {
+                return ("q=" +
+                    parameters
+                        .q.split("+")
+                        .map(encodeURIComponent)
+                        .join("+"));
+            }
+            return `${name}=${encodeURIComponent(parameters[name])}`;
+        })
+            .join("&"));
+}
+
+const urlVariableRegex = /\{[^}]+\}/g;
+function removeNonChars(variableName) {
+    return variableName.replace(/^\W+|\W+$/g, "").split(/,/);
+}
+function extractUrlVariableNames(url) {
+    const matches = url.match(urlVariableRegex);
+    if (!matches) {
+        return [];
+    }
+    return matches.map(removeNonChars).reduce((a, b) => a.concat(b), []);
+}
+
+function omit(object, keysToOmit) {
+    return Object.keys(object)
+        .filter(option => !keysToOmit.includes(option))
+        .reduce((obj, key) => {
+        obj[key] = object[key];
+        return obj;
+    }, {});
+}
+
+// Based on https://github.com/bramstein/url-template, licensed under BSD
+// TODO: create separate package.
+//
+// Copyright (c) 2012-2014, Bram Stein
+// All rights reserved.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+//  1. Redistributions of source code must retain the above copyright
+//     notice, this list of conditions and the following disclaimer.
+//  2. Redistributions in binary form must reproduce the above copyright
+//     notice, this list of conditions and the following disclaimer in the
+//     documentation and/or other materials provided with the distribution.
+//  3. The name of the author may not be used to endorse or promote products
+//     derived from this software without specific prior written permission.
+// THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+// EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+// INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+// EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+/* istanbul ignore file */
+function encodeReserved(str) {
+    return str
+        .split(/(%[0-9A-Fa-f]{2})/g)
+        .map(function (part) {
+        if (!/%[0-9A-Fa-f]/.test(part)) {
+            part = encodeURI(part)
+                .replace(/%5B/g, "[")
+                .replace(/%5D/g, "]");
+        }
+        return part;
+    })
+        .join("");
+}
+function encodeUnreserved(str) {
+    return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {
+        return ("%" +
+            c
+                .charCodeAt(0)
+                .toString(16)
+                .toUpperCase());
+    });
+}
+function encodeValue(operator, value, key) {
+    value =
+        operator === "+" || operator === "#"
+            ? encodeReserved(value)
+            : encodeUnreserved(value);
+    if (key) {
+        return encodeUnreserved(key) + "=" + value;
+    }
+    else {
+        return value;
+    }
+}
+function isDefined(value) {
+    return value !== undefined && value !== null;
+}
+function isKeyOperator(operator) {
+    return operator === ";" || operator === "&" || operator === "?";
+}
+function getValues(context, operator, key, modifier) {
+    var value = context[key], result = [];
+    if (isDefined(value) && value !== "") {
+        if (typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean") {
+            value = value.toString();
+            if (modifier && modifier !== "*") {
+                value = value.substring(0, parseInt(modifier, 10));
+            }
+            result.push(encodeValue(operator, value, isKeyOperator(operator) ? key : ""));
+        }
+        else {
+            if (modifier === "*") {
+                if (Array.isArray(value)) {
+                    value.filter(isDefined).forEach(function (value) {
+                        result.push(encodeValue(operator, value, isKeyOperator(operator) ? key : ""));
+                    });
+                }
+                else {
+                    Object.keys(value).forEach(function (k) {
+                        if (isDefined(value[k])) {
+                            result.push(encodeValue(operator, value[k], k));
+                        }
+                    });
+                }
+            }
+            else {
+                const tmp = [];
+                if (Array.isArray(value)) {
+                    value.filter(isDefined).forEach(function (value) {
+                        tmp.push(encodeValue(operator, value));
+                    });
+                }
+                else {
+                    Object.keys(value).forEach(function (k) {
+                        if (isDefined(value[k])) {
+                            tmp.push(encodeUnreserved(k));
+                            tmp.push(encodeValue(operator, value[k].toString()));
+                        }
+                    });
+                }
+                if (isKeyOperator(operator)) {
+                    result.push(encodeUnreserved(key) + "=" + tmp.join(","));
+                }
+                else if (tmp.length !== 0) {
+                    result.push(tmp.join(","));
+                }
+            }
+        }
+    }
+    else {
+        if (operator === ";") {
+            if (isDefined(value)) {
+                result.push(encodeUnreserved(key));
+            }
+        }
+        else if (value === "" && (operator === "&" || operator === "?")) {
+            result.push(encodeUnreserved(key) + "=");
+        }
+        else if (value === "") {
+            result.push("");
+        }
+    }
+    return result;
+}
+function parseUrl(template) {
+    return {
+        expand: expand.bind(null, template)
+    };
+}
+function expand(template, context) {
+    var operators = ["+", "#", ".", "/", ";", "?", "&"];
+    return template.replace(/\{([^\{\}]+)\}|([^\{\}]+)/g, function (_, expression, literal) {
+        if (expression) {
+            let operator = "";
+            const values = [];
+            if (operators.indexOf(expression.charAt(0)) !== -1) {
+                operator = expression.charAt(0);
+                expression = expression.substr(1);
+            }
+            expression.split(/,/g).forEach(function (variable) {
+                var tmp = /([^:\*]*)(?::(\d+)|(\*))?/.exec(variable);
+                values.push(getValues(context, operator, tmp[1], tmp[2] || tmp[3]));
+            });
+            if (operator && operator !== "+") {
+                var separator = ",";
+                if (operator === "?") {
+                    separator = "&";
+                }
+                else if (operator !== "#") {
+                    separator = operator;
+                }
+                return (values.length !== 0 ? operator : "") + values.join(separator);
+            }
+            else {
+                return values.join(",");
+            }
+        }
+        else {
+            return encodeReserved(literal);
+        }
+    });
+}
+
+function parse(options) {
+    // https://fetch.spec.whatwg.org/#methods
+    let method = options.method.toUpperCase();
+    // replace :varname with {varname} to make it RFC 6570 compatible
+    let url = options.url.replace(/:([a-z]\w+)/g, "{+$1}");
+    let headers = Object.assign({}, options.headers);
+    let body;
+    let parameters = omit(options, [
+        "method",
+        "baseUrl",
+        "url",
+        "headers",
+        "request",
+        "mediaType"
+    ]);
+    // extract variable names from URL to calculate remaining variables later
+    const urlVariableNames = extractUrlVariableNames(url);
+    url = parseUrl(url).expand(parameters);
+    if (!/^http/.test(url)) {
+        url = options.baseUrl + url;
+    }
+    const omittedParameters = Object.keys(options)
+        .filter(option => urlVariableNames.includes(option))
+        .concat("baseUrl");
+    const remainingParameters = omit(parameters, omittedParameters);
+    const isBinaryRequset = /application\/octet-stream/i.test(headers.accept);
+    if (!isBinaryRequset) {
+        if (options.mediaType.format) {
+            // e.g. application/vnd.github.v3+json => application/vnd.github.v3.raw
+            headers.accept = headers.accept
+                .split(/,/)
+                .map(preview => preview.replace(/application\/vnd(\.\w+)(\.v3)?(\.\w+)?(\+json)?$/, `application/vnd$1$2.${options.mediaType.format}`))
+                .join(",");
+        }
+        if (options.mediaType.previews.length) {
+            const previewsFromAcceptHeader = headers.accept.match(/[\w-]+(?=-preview)/g) || [];
+            headers.accept = previewsFromAcceptHeader
+                .concat(options.mediaType.previews)
+                .map(preview => {
+                const format = options.mediaType.format
+                    ? `.${options.mediaType.format}`
+                    : "+json";
+                return `application/vnd.github.${preview}-preview${format}`;
+            })
+                .join(",");
+        }
+    }
+    // for GET/HEAD requests, set URL query parameters from remaining parameters
+    // for PATCH/POST/PUT/DELETE requests, set request body from remaining parameters
+    if (["GET", "HEAD"].includes(method)) {
+        url = addQueryParameters(url, remainingParameters);
+    }
+    else {
+        if ("data" in remainingParameters) {
+            body = remainingParameters.data;
+        }
+        else {
+            if (Object.keys(remainingParameters).length) {
+                body = remainingParameters;
+            }
+            else {
+                headers["content-length"] = 0;
+            }
+        }
+    }
+    // default content-type for JSON if body is set
+    if (!headers["content-type"] && typeof body !== "undefined") {
+        headers["content-type"] = "application/json; charset=utf-8";
+    }
+    // GitHub expects 'content-length: 0' header for PUT/PATCH requests without body.
+    // fetch does not allow to set `content-length` header, but we can set body to an empty string
+    if (["PATCH", "PUT"].includes(method) && typeof body === "undefined") {
+        body = "";
+    }
+    // Only return body/request keys if present
+    return Object.assign({ method, url, headers }, typeof body !== "undefined" ? { body } : null, options.request ? { request: options.request } : null);
+}
+
+function endpointWithDefaults(defaults, route, options) {
+    return parse(merge(defaults, route, options));
+}
+
+function withDefaults(oldDefaults, newDefaults) {
+    const DEFAULTS = merge(oldDefaults, newDefaults);
+    const endpoint = endpointWithDefaults.bind(null, DEFAULTS);
+    return Object.assign(endpoint, {
+        DEFAULTS,
+        defaults: withDefaults.bind(null, DEFAULTS),
+        merge: merge.bind(null, DEFAULTS),
+        parse
+    });
+}
+
+const VERSION = "0.0.0-development";
+
+const userAgent = `octokit-endpoint.js/${VERSION} ${Object(universal_user_agent__WEBPACK_IMPORTED_MODULE_1__["getUserAgent"])()}`;
+const DEFAULTS = {
+    method: "GET",
+    baseUrl: "https://api.github.com",
+    headers: {
+        accept: "application/vnd.github.v3+json",
+        "user-agent": userAgent
+    },
+    mediaType: {
+        format: "",
+        previews: []
+    }
+};
+
+const endpoint = withDefaults(null, DEFAULTS);
+
+
+//# sourceMappingURL=index.js.map
+
+
+/***/ }),
+/* 60 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return isPlainObject; });
+/* harmony import */ var isobject__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(61);
+/*!
+ * is-plain-object <https://github.com/jonschlinkert/is-plain-object>
+ *
+ * Copyright (c) 2014-2017, Jon Schlinkert.
+ * Released under the MIT License.
+ */
+
+
+
+function isObjectObject(o) {
+  return Object(isobject__WEBPACK_IMPORTED_MODULE_0__["default"])(o) === true
+    && Object.prototype.toString.call(o) === '[object Object]';
+}
+
+function isPlainObject(o) {
+  var ctor,prot;
+
+  if (isObjectObject(o) === false) return false;
+
+  // If has modified constructor
+  ctor = o.constructor;
+  if (typeof ctor !== 'function') return false;
+
+  // If has modified prototype
+  prot = ctor.prototype;
+  if (isObjectObject(prot) === false) return false;
+
+  // If constructor does not have an Object-specific method
+  if (prot.hasOwnProperty('isPrototypeOf') === false) {
+    return false;
+  }
+
+  // Most likely a plain Object
+  return true;
+};
+
+
+/***/ }),
+/* 61 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return isObject; });
+/*!
+ * isobject <https://github.com/jonschlinkert/isobject>
+ *
+ * Copyright (c) 2014-2017, Jon Schlinkert.
+ * Released under the MIT License.
+ */
+
+function isObject(val) {
+  return val != null && typeof val === 'object' && Array.isArray(val) === false;
+};
+
+
+/***/ }),
+/* 62 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getUserAgent", function() { return getUserAgent; });
+function getUserAgent() {
+    return navigator.userAgent;
+}
+
+
+//# sourceMappingURL=index.js.map
+
+
+/***/ }),
+/* 63 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+// ref: https://github.com/tc39/proposal-global
+var getGlobal = function () {
+	// the only reliable means to get the global object is
+	// `Function('return this')()`
+	// However, this causes CSP violations in Chrome apps.
+	if (typeof self !== 'undefined') { return self; }
+	if (typeof window !== 'undefined') { return window; }
+	if (typeof global !== 'undefined') { return global; }
+	throw new Error('unable to locate global object');
+}
+
+var global = getGlobal();
+
+module.exports = exports = global.fetch;
+
+// Needed for TypeScript and Webpack.
+exports.default = global.fetch.bind(global);
+
+exports.Headers = global.Headers;
+exports.Request = global.Request;
+exports.Response = global.Response;
+
+/***/ }),
+/* 64 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "RequestError", function() { return RequestError; });
+/* harmony import */ var deprecation__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(65);
+/* harmony import */ var once__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(66);
+/* harmony import */ var once__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(once__WEBPACK_IMPORTED_MODULE_1__);
+
+
+
+const logOnce = once__WEBPACK_IMPORTED_MODULE_1___default()(deprecation => console.warn(deprecation));
+/**
+ * Error with extra properties to help with debugging
+ */
+
+class RequestError extends Error {
+  constructor(message, statusCode, options) {
+    super(message); // Maintains proper stack trace (only available on V8)
+
+    /* istanbul ignore next */
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
+
+    this.name = "HttpError";
+    this.status = statusCode;
+    Object.defineProperty(this, "code", {
+      get() {
+        logOnce(new deprecation__WEBPACK_IMPORTED_MODULE_0__["Deprecation"]("[@octokit/request-error] `error.code` is deprecated, use `error.status`."));
+        return statusCode;
+      }
+
+    });
+    this.headers = options.headers; // redact request credentials without mutating original request options
+
+    const requestCopy = Object.assign({}, options.request);
+
+    if (options.request.headers.authorization) {
+      requestCopy.headers = Object.assign({}, options.request.headers, {
+        authorization: options.request.headers.authorization.replace(/ .*$/, " [REDACTED]")
+      });
+    }
+
+    requestCopy.url = requestCopy.url // client_id & client_secret can be passed as URL query parameters to increase rate limit
+    // see https://developer.github.com/v3/#increasing-the-unauthenticated-rate-limit-for-oauth-applications
+    .replace(/\bclient_secret=\w+/g, "client_secret=[REDACTED]") // OAuth tokens can be passed as URL query parameters, although it is not recommended
+    // see https://developer.github.com/v3/#oauth2-token-sent-in-a-header
+    .replace(/\baccess_token=\w+/g, "access_token=[REDACTED]");
+    this.request = requestCopy;
+  }
+
+}
+
+
+
+
+/***/ }),
+/* 65 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "Deprecation", function() { return Deprecation; });
+class Deprecation extends Error {
+  constructor(message) {
+    super(message); // Maintains proper stack trace (only available on V8)
+
+    /* istanbul ignore next */
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
+
+    this.name = 'Deprecation';
+  }
+
+}
+
+
+
+
+/***/ }),
+/* 66 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var wrappy = __webpack_require__(67)
+module.exports = wrappy(once)
+module.exports.strict = wrappy(onceStrict)
+
+once.proto = once(function () {
+  Object.defineProperty(Function.prototype, 'once', {
+    value: function () {
+      return once(this)
+    },
+    configurable: true
+  })
+
+  Object.defineProperty(Function.prototype, 'onceStrict', {
+    value: function () {
+      return onceStrict(this)
+    },
+    configurable: true
+  })
+})
+
+function once (fn) {
+  var f = function () {
+    if (f.called) return f.value
+    f.called = true
+    return f.value = fn.apply(this, arguments)
+  }
+  f.called = false
+  return f
+}
+
+function onceStrict (fn) {
+  var f = function () {
+    if (f.called)
+      throw new Error(f.onceError)
+    f.called = true
+    return f.value = fn.apply(this, arguments)
+  }
+  var name = fn.name || 'Function wrapped with `once`'
+  f.onceError = name + " shouldn't be called more than once"
+  f.called = false
+  return f
+}
+
+
+/***/ }),
+/* 67 */
+/***/ (function(module, exports) {
+
+// Returns a wrapper function that returns a wrapped callback
+// The wrapper function should do some stuff, and return a
+// presumably different callback function.
+// This makes sure that own properties are retained, so that
+// decorations and such are not lost along the way.
+module.exports = wrappy
+function wrappy (fn, cb) {
+  if (fn && cb) return wrappy(fn)(cb)
+
+  if (typeof fn !== 'function')
+    throw new TypeError('need wrapper function')
+
+  Object.keys(fn).forEach(function (k) {
+    wrapper[k] = fn[k]
+  })
+
+  return wrapper
+
+  function wrapper() {
+    var args = new Array(arguments.length)
+    for (var i = 0; i < args.length; i++) {
+      args[i] = arguments[i]
+    }
+    var ret = fn.apply(this, args)
+    var cb = args[args.length-1]
+    if (typeof ret === 'function' && ret !== cb) {
+      Object.keys(cb).forEach(function (k) {
+        ret[k] = cb[k]
+      })
+    }
+    return ret
+  }
+}
+
+
+/***/ }),
+/* 68 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var register = __webpack_require__(69)
+var addHook = __webpack_require__(70)
+var removeHook = __webpack_require__(71)
+
+// bind with array of arguments: https://stackoverflow.com/a/21792913
+var bind = Function.bind
+var bindable = bind.bind(bind)
+
+function bindApi (hook, state, name) {
+  var removeHookRef = bindable(removeHook, null).apply(null, name ? [state, name] : [state])
+  hook.api = { remove: removeHookRef }
+  hook.remove = removeHookRef
+
+  ;['before', 'error', 'after', 'wrap'].forEach(function (kind) {
+    var args = name ? [state, kind, name] : [state, kind]
+    hook[kind] = hook.api[kind] = bindable(addHook, null).apply(null, args)
+  })
+}
+
+function HookSingular () {
+  var singularHookName = 'h'
+  var singularHookState = {
+    registry: {}
+  }
+  var singularHook = register.bind(null, singularHookState, singularHookName)
+  bindApi(singularHook, singularHookState, singularHookName)
+  return singularHook
+}
+
+function HookCollection () {
+  var state = {
+    registry: {}
+  }
+
+  var hook = register.bind(null, state)
+  bindApi(hook, state)
+
+  return hook
+}
+
+var collectionHookDeprecationMessageDisplayed = false
+function Hook () {
+  if (!collectionHookDeprecationMessageDisplayed) {
+    console.warn('[before-after-hook]: "Hook()" repurposing warning, use "Hook.Collection()". Read more: https://git.io/upgrade-before-after-hook-to-1.4')
+    collectionHookDeprecationMessageDisplayed = true
+  }
+  return HookCollection()
+}
+
+Hook.Singular = HookSingular.bind()
+Hook.Collection = HookCollection.bind()
+
+module.exports = Hook
+// expose constructors as a named property for TypeScript
+module.exports.Hook = Hook
+module.exports.Singular = Hook.Singular
+module.exports.Collection = Hook.Collection
+
+
+/***/ }),
+/* 69 */
+/***/ (function(module, exports) {
+
+module.exports = register
+
+function register (state, name, method, options) {
+  if (typeof method !== 'function') {
+    throw new Error('method for before hook must be a function')
+  }
+
+  if (!options) {
+    options = {}
+  }
+
+  if (Array.isArray(name)) {
+    return name.reverse().reduce(function (callback, name) {
+      return register.bind(null, state, name, callback, options)
+    }, method)()
+  }
+
+  return Promise.resolve()
+    .then(function () {
+      if (!state.registry[name]) {
+        return method(options)
+      }
+
+      return (state.registry[name]).reduce(function (method, registered) {
+        return registered.hook.bind(null, method, options)
+      }, method)()
+    })
+}
+
+
+/***/ }),
+/* 70 */
+/***/ (function(module, exports) {
+
+module.exports = addHook
+
+function addHook (state, kind, name, hook) {
+  var orig = hook
+  if (!state.registry[name]) {
+    state.registry[name] = []
+  }
+
+  if (kind === 'before') {
+    hook = function (method, options) {
+      return Promise.resolve()
+        .then(orig.bind(null, options))
+        .then(method.bind(null, options))
+    }
+  }
+
+  if (kind === 'after') {
+    hook = function (method, options) {
+      var result
+      return Promise.resolve()
+        .then(method.bind(null, options))
+        .then(function (result_) {
+          result = result_
+          return orig(result, options)
+        })
+        .then(function () {
+          return result
+        })
+    }
+  }
+
+  if (kind === 'error') {
+    hook = function (method, options) {
+      return Promise.resolve()
+        .then(method.bind(null, options))
+        .catch(function (error) {
+          return orig(error, options)
+        })
+    }
+  }
+
+  state.registry[name].push({
+    hook: hook,
+    orig: orig
+  })
+}
+
+
+/***/ }),
+/* 71 */
+/***/ (function(module, exports) {
+
+module.exports = removeHook
+
+function removeHook (state, name, method) {
+  if (!state.registry[name]) {
+    return
+  }
+
+  var index = state.registry[name]
+    .map(function (registered) { return registered.orig })
+    .indexOf(method)
+
+  if (index === -1) {
+    return
+  }
+
+  state.registry[name].splice(index, 1)
+}
+
+
+/***/ }),
+/* 72 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = parseOptions;
+
+const { Deprecation } = __webpack_require__(65);
+const { getUserAgent } = __webpack_require__(62);
+const once = __webpack_require__(66);
+
+const pkg = __webpack_require__(73);
+
+const deprecateOptionsTimeout = once((log, deprecation) =>
+  log.warn(deprecation)
+);
+const deprecateOptionsAgent = once((log, deprecation) => log.warn(deprecation));
+const deprecateOptionsHeaders = once((log, deprecation) =>
+  log.warn(deprecation)
+);
+
+function parseOptions(options, log, hook) {
+  if (options.headers) {
+    options.headers = Object.keys(options.headers).reduce((newObj, key) => {
+      newObj[key.toLowerCase()] = options.headers[key];
+      return newObj;
+    }, {});
+  }
+
+  const clientDefaults = {
+    headers: options.headers || {},
+    request: options.request || {},
+    mediaType: {
+      previews: [],
+      format: ""
+    }
+  };
+
+  if (options.baseUrl) {
+    clientDefaults.baseUrl = options.baseUrl;
+  }
+
+  if (options.userAgent) {
+    clientDefaults.headers["user-agent"] = options.userAgent;
+  }
+
+  if (options.previews) {
+    clientDefaults.mediaType.previews = options.previews;
+  }
+
+  if (options.timeout) {
+    deprecateOptionsTimeout(
+      log,
+      new Deprecation(
+        "[@octokit/rest] new Octokit({timeout}) is deprecated. Use {request: {timeout}} instead. See https://github.com/octokit/request.js#request"
+      )
+    );
+    clientDefaults.request.timeout = options.timeout;
+  }
+
+  if (options.agent) {
+    deprecateOptionsAgent(
+      log,
+      new Deprecation(
+        "[@octokit/rest] new Octokit({agent}) is deprecated. Use {request: {agent}} instead. See https://github.com/octokit/request.js#request"
+      )
+    );
+    clientDefaults.request.agent = options.agent;
+  }
+
+  if (options.headers) {
+    deprecateOptionsHeaders(
+      log,
+      new Deprecation(
+        "[@octokit/rest] new Octokit({headers}) is deprecated. Use {userAgent, previews} instead. See https://github.com/octokit/request.js#request"
+      )
+    );
+  }
+
+  const userAgentOption = clientDefaults.headers["user-agent"];
+  const defaultUserAgent = `octokit.js/${pkg.version} ${getUserAgent()}`;
+
+  clientDefaults.headers["user-agent"] = [userAgentOption, defaultUserAgent]
+    .filter(Boolean)
+    .join(" ");
+
+  clientDefaults.request.hook = hook.bind(null, "request");
+
+  return clientDefaults;
+}
+
+
+/***/ }),
+/* 73 */
+/***/ (function(module) {
+
+module.exports = JSON.parse("{\"_from\":\"@octokit/rest\",\"_id\":\"@octokit/rest@16.30.0\",\"_inBundle\":false,\"_integrity\":\"sha512-TN5MbqVuqxT/s87D6tGe3zsMvyHUQSkGFMBHuwBToPQGV3eG2a67rJW2rag2vJr7JusWyERDhQ4g/4HvFo9B1g==\",\"_location\":\"/@octokit/rest\",\"_phantomChildren\":{},\"_requested\":{\"type\":\"tag\",\"registry\":true,\"raw\":\"@octokit/rest\",\"name\":\"@octokit/rest\",\"escapedName\":\"@octokit%2frest\",\"scope\":\"@octokit\",\"rawSpec\":\"\",\"saveSpec\":null,\"fetchSpec\":\"latest\"},\"_requiredBy\":[\"#USER\",\"/\"],\"_resolved\":\"https://registry.npmjs.org/@octokit/rest/-/rest-16.30.0.tgz\",\"_shasum\":\"c14f177b7378f330ec6ec6ae49b68af359d09053\",\"_spec\":\"@octokit/rest\",\"_where\":\"/mnt/data/code/github/fc-modules\",\"author\":{\"name\":\"Gregor Martynus\",\"url\":\"https://github.com/gr2m\"},\"bugs\":{\"url\":\"https://github.com/octokit/rest.js/issues\"},\"bundleDependencies\":false,\"bundlesize\":[{\"path\":\"./dist/octokit-rest.min.js.gz\",\"maxSize\":\"33 kB\"}],\"contributors\":[{\"name\":\"Mike de Boer\",\"email\":\"info@mikedeboer.nl\"},{\"name\":\"Fabian Jakobs\",\"email\":\"fabian@c9.io\"},{\"name\":\"Joe Gallo\",\"email\":\"joe@brassafrax.com\"},{\"name\":\"Gregor Martynus\",\"url\":\"https://github.com/gr2m\"}],\"dependencies\":{\"@octokit/request\":\"^5.0.0\",\"@octokit/request-error\":\"^1.0.2\",\"atob-lite\":\"^2.0.0\",\"before-after-hook\":\"^2.0.0\",\"btoa-lite\":\"^1.0.0\",\"deprecation\":\"^2.0.0\",\"lodash.get\":\"^4.4.2\",\"lodash.set\":\"^4.3.2\",\"lodash.uniq\":\"^4.5.0\",\"octokit-pagination-methods\":\"^1.1.0\",\"once\":\"^1.4.0\",\"universal-user-agent\":\"^4.0.0\"},\"deprecated\":false,\"description\":\"GitHub REST API client for Node.js\",\"devDependencies\":{\"@gimenete/type-writer\":\"^0.1.3\",\"@octokit/fixtures-server\":\"^5.0.6\",\"@octokit/graphql\":\"^4.2.0\",\"@types/node\":\"^12.0.0\",\"bundlesize\":\"^0.18.0\",\"chai\":\"^4.1.2\",\"compression-webpack-plugin\":\"^3.0.0\",\"cypress\":\"^3.0.0\",\"glob\":\"^7.1.2\",\"http-proxy-agent\":\"^2.1.0\",\"lodash.camelcase\":\"^4.3.0\",\"lodash.merge\":\"^4.6.1\",\"lodash.upperfirst\":\"^4.3.1\",\"mkdirp\":\"^0.5.1\",\"mocha\":\"^6.0.0\",\"mustache\":\"^3.0.0\",\"nock\":\"^11.3.3\",\"npm-run-all\":\"^4.1.2\",\"nyc\":\"^14.0.0\",\"prettier\":\"^1.14.2\",\"proxy\":\"^0.2.4\",\"semantic-release\":\"^15.0.0\",\"sinon\":\"^7.2.4\",\"sinon-chai\":\"^3.0.0\",\"sort-keys\":\"^4.0.0\",\"string-to-arraybuffer\":\"^1.0.0\",\"string-to-jsdoc-comment\":\"^1.0.0\",\"typescript\":\"^3.3.1\",\"webpack\":\"^4.0.0\",\"webpack-bundle-analyzer\":\"^3.0.0\",\"webpack-cli\":\"^3.0.0\"},\"files\":[\"index.js\",\"index.d.ts\",\"lib\",\"plugins\"],\"homepage\":\"https://github.com/octokit/rest.js#readme\",\"keywords\":[\"octokit\",\"github\",\"rest\",\"api-client\"],\"license\":\"MIT\",\"name\":\"@octokit/rest\",\"nyc\":{\"ignore\":[\"test\"]},\"publishConfig\":{\"access\":\"public\"},\"release\":{\"publish\":[\"@semantic-release/npm\",{\"path\":\"@semantic-release/github\",\"assets\":[\"dist/*\",\"!dist/*.map.gz\"]}]},\"repository\":{\"type\":\"git\",\"url\":\"git+https://github.com/octokit/rest.js.git\"},\"scripts\":{\"build\":\"npm-run-all build:*\",\"build:browser\":\"npm-run-all build:browser:*\",\"build:browser:development\":\"webpack --mode development --entry . --output-library=Octokit --output=./dist/octokit-rest.js --profile --json > dist/bundle-stats.json\",\"build:browser:production\":\"webpack --mode production --entry . --plugin=compression-webpack-plugin --output-library=Octokit --output-path=./dist --output-filename=octokit-rest.min.js --devtool source-map\",\"build:ts\":\"node scripts/generate-types\",\"coverage\":\"nyc report --reporter=html && open coverage/index.html\",\"generate-bundle-report\":\"webpack-bundle-analyzer dist/bundle-stats.json --mode=static --no-open --report dist/bundle-report.html\",\"generate-routes\":\"node scripts/generate-routes\",\"lint\":\"prettier --check '{lib,plugins,scripts,test}/**/*.{js,json,ts}' 'docs/*.{js,json}' 'docs/src/**/*' index.js README.md package.json\",\"lint:fix\":\"prettier --write '{lib,plugins,scripts,test}/**/*.{js,json,ts}' 'docs/*.{js,json}' 'docs/src/**/*' index.js README.md package.json\",\"postvalidate:ts\":\"tsc --noEmit --target es6 test/typescript-validate.ts\",\"prebuild:browser\":\"mkdirp dist/\",\"pretest\":\"npm run -s lint\",\"prevalidate:ts\":\"npm run -s build:ts\",\"start-fixtures-server\":\"octokit-fixtures-server\",\"test\":\"nyc mocha test/mocha-node-setup.js \\\"test/*/**/*-test.js\\\"\",\"test:browser\":\"cypress run --browser chrome\",\"validate:ts\":\"tsc --target es6 --noImplicitAny index.d.ts\"},\"types\":\"index.d.ts\",\"version\":\"16.30.0\"}");
+
+/***/ }),
+/* 74 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = registerPlugin;
+
+const factory = __webpack_require__(56);
+
+function registerPlugin(plugins, pluginFunction) {
+  return factory(
+    plugins.includes(pluginFunction) ? plugins : plugins.concat(pluginFunction)
+  );
+}
+
+
+/***/ }),
+/* 75 */
+/***/ (function(module, exports) {
+
+module.exports = octokitDebug;
+
+function octokitDebug(octokit) {
+  octokit.hook.wrap("request", (request, options) => {
+    octokit.log.debug("request", options);
+    const start = Date.now();
+    const requestOptions = octokit.request.endpoint.parse(options);
+    const path = requestOptions.url.replace(options.baseUrl, "");
+
+    return request(options)
+      .then(response => {
+        octokit.log.info(
+          `${requestOptions.method} ${path} - ${
+            response.status
+          } in ${Date.now() - start}ms`
+        );
+        return response;
+      })
+
+      .catch(error => {
+        octokit.log.info(
+          `${requestOptions.method} ${path} - ${error.status} in ${Date.now() -
+            start}ms`
+        );
+        throw error;
+      });
+  });
+}
+
+
+/***/ }),
+/* 76 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = authenticationPlugin;
+
+const { Deprecation } = __webpack_require__(65);
+const once = __webpack_require__(66);
+
+const deprecateAuthenticate = once((log, deprecation) => log.warn(deprecation));
+
+const authenticate = __webpack_require__(77);
+const beforeRequest = __webpack_require__(78);
+const requestError = __webpack_require__(81);
+
+function authenticationPlugin(octokit, options) {
+  if (options.auth) {
+    octokit.authenticate = () => {
+      deprecateAuthenticate(
+        octokit.log,
+        new Deprecation(
+          '[@octokit/rest] octokit.authenticate() is deprecated and has no effect when "auth" option is set on Octokit constructor'
+        )
+      );
+    };
+    return;
+  }
+  const state = {
+    octokit,
+    auth: false
+  };
+  octokit.authenticate = authenticate.bind(null, state);
+  octokit.hook.before("request", beforeRequest.bind(null, state));
+  octokit.hook.error("request", requestError.bind(null, state));
+}
+
+
+/***/ }),
+/* 77 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = authenticate;
+
+const { Deprecation } = __webpack_require__(65);
+const once = __webpack_require__(66);
+
+const deprecateAuthenticate = once((log, deprecation) => log.warn(deprecation));
+
+function authenticate(state, options) {
+  deprecateAuthenticate(
+    state.octokit.log,
+    new Deprecation(
+      '[@octokit/rest] octokit.authenticate() is deprecated. Use "auth" constructor option instead.'
+    )
+  );
+
+  if (!options) {
+    state.auth = false;
+    return;
+  }
+
+  switch (options.type) {
+    case "basic":
+      if (!options.username || !options.password) {
+        throw new Error(
+          "Basic authentication requires both a username and password to be set"
+        );
+      }
+      break;
+
+    case "oauth":
+      if (!options.token && !(options.key && options.secret)) {
+        throw new Error(
+          "OAuth2 authentication requires a token or key & secret to be set"
+        );
+      }
+      break;
+
+    case "token":
+    case "app":
+      if (!options.token) {
+        throw new Error("Token authentication requires a token to be set");
+      }
+      break;
+
+    default:
+      throw new Error(
+        "Invalid authentication type, must be 'basic', 'oauth', 'token' or 'app'"
+      );
+  }
+
+  state.auth = options;
+}
+
+
+/***/ }),
+/* 78 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = authenticationBeforeRequest;
+
+const btoa = __webpack_require__(79);
+const uniq = __webpack_require__(80);
+
+function authenticationBeforeRequest(state, options) {
+  if (!state.auth.type) {
+    return;
+  }
+
+  if (state.auth.type === "basic") {
+    const hash = btoa(`${state.auth.username}:${state.auth.password}`);
+    options.headers.authorization = `Basic ${hash}`;
+    return;
+  }
+
+  if (state.auth.type === "token") {
+    options.headers.authorization = `token ${state.auth.token}`;
+    return;
+  }
+
+  if (state.auth.type === "app") {
+    options.headers.authorization = `Bearer ${state.auth.token}`;
+    const acceptHeaders = options.headers.accept
+      .split(",")
+      .concat("application/vnd.github.machine-man-preview+json");
+    options.headers.accept = uniq(acceptHeaders)
+      .filter(Boolean)
+      .join(",");
+    return;
+  }
+
+  options.url += options.url.indexOf("?") === -1 ? "?" : "&";
+
+  if (state.auth.token) {
+    options.url += `access_token=${encodeURIComponent(state.auth.token)}`;
+    return;
+  }
+
+  const key = encodeURIComponent(state.auth.key);
+  const secret = encodeURIComponent(state.auth.secret);
+  options.url += `client_id=${key}&client_secret=${secret}`;
+}
+
+
+/***/ }),
+/* 79 */
+/***/ (function(module, exports) {
+
+module.exports = function _btoa(str) {
+  return btoa(str)
+}
+
+
+/***/ }),
+/* 80 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/* WEBPACK VAR INJECTION */(function(global) {/**
+ * lodash (Custom Build) <https://lodash.com/>
+ * Build: `lodash modularize exports="npm" -o ./`
+ * Copyright jQuery Foundation and other contributors <https://jquery.org/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+
+/** Used as the size to enable large array optimizations. */
+var LARGE_ARRAY_SIZE = 200;
+
+/** Used to stand-in for `undefined` hash values. */
+var HASH_UNDEFINED = '__lodash_hash_undefined__';
+
+/** Used as references for various `Number` constants. */
+var INFINITY = 1 / 0;
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]',
+    genTag = '[object GeneratorFunction]';
+
+/**
+ * Used to match `RegExp`
+ * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
+ */
+var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+
+/** Used to detect host constructors (Safari). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/**
+ * A specialized version of `_.includes` for arrays without support for
+ * specifying an index to search from.
+ *
+ * @private
+ * @param {Array} [array] The array to inspect.
+ * @param {*} target The value to search for.
+ * @returns {boolean} Returns `true` if `target` is found, else `false`.
+ */
+function arrayIncludes(array, value) {
+  var length = array ? array.length : 0;
+  return !!length && baseIndexOf(array, value, 0) > -1;
+}
+
+/**
+ * This function is like `arrayIncludes` except that it accepts a comparator.
+ *
+ * @private
+ * @param {Array} [array] The array to inspect.
+ * @param {*} target The value to search for.
+ * @param {Function} comparator The comparator invoked per element.
+ * @returns {boolean} Returns `true` if `target` is found, else `false`.
+ */
+function arrayIncludesWith(array, value, comparator) {
+  var index = -1,
+      length = array ? array.length : 0;
+
+  while (++index < length) {
+    if (comparator(value, array[index])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The base implementation of `_.findIndex` and `_.findLastIndex` without
+ * support for iteratee shorthands.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {Function} predicate The function invoked per iteration.
+ * @param {number} fromIndex The index to search from.
+ * @param {boolean} [fromRight] Specify iterating from right to left.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function baseFindIndex(array, predicate, fromIndex, fromRight) {
+  var length = array.length,
+      index = fromIndex + (fromRight ? 1 : -1);
+
+  while ((fromRight ? index-- : ++index < length)) {
+    if (predicate(array[index], index, array)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.indexOf` without `fromIndex` bounds checks.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} value The value to search for.
+ * @param {number} fromIndex The index to search from.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function baseIndexOf(array, value, fromIndex) {
+  if (value !== value) {
+    return baseFindIndex(array, baseIsNaN, fromIndex);
+  }
+  var index = fromIndex - 1,
+      length = array.length;
+
+  while (++index < length) {
+    if (array[index] === value) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.isNaN` without support for number objects.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is `NaN`, else `false`.
+ */
+function baseIsNaN(value) {
+  return value !== value;
+}
+
+/**
+ * Checks if a cache value for `key` exists.
+ *
+ * @private
+ * @param {Object} cache The cache to query.
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function cacheHas(cache, key) {
+  return cache.has(key);
+}
+
+/**
+ * Gets the value at `key` of `object`.
+ *
+ * @private
+ * @param {Object} [object] The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function getValue(object, key) {
+  return object == null ? undefined : object[key];
+}
+
+/**
+ * Checks if `value` is a host object in IE < 9.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a host object, else `false`.
+ */
+function isHostObject(value) {
+  // Many host objects are `Object` objects that can coerce to strings
+  // despite having improperly defined `toString` methods.
+  var result = false;
+  if (value != null && typeof value.toString != 'function') {
+    try {
+      result = !!(value + '');
+    } catch (e) {}
+  }
+  return result;
+}
+
+/**
+ * Converts `set` to an array of its values.
+ *
+ * @private
+ * @param {Object} set The set to convert.
+ * @returns {Array} Returns the values.
+ */
+function setToArray(set) {
+  var index = -1,
+      result = Array(set.size);
+
+  set.forEach(function(value) {
+    result[++index] = value;
+  });
+  return result;
+}
+
+/** Used for built-in method references. */
+var arrayProto = Array.prototype,
+    funcProto = Function.prototype,
+    objectProto = Object.prototype;
+
+/** Used to detect overreaching core-js shims. */
+var coreJsData = root['__core-js_shared__'];
+
+/** Used to detect methods masquerading as native. */
+var maskSrcKey = (function() {
+  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
+  return uid ? ('Symbol(src)_1.' + uid) : '';
+}());
+
+/** Used to resolve the decompiled source of functions. */
+var funcToString = funcProto.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objectToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/** Built-in value references. */
+var splice = arrayProto.splice;
+
+/* Built-in method references that are verified to be native. */
+var Map = getNative(root, 'Map'),
+    Set = getNative(root, 'Set'),
+    nativeCreate = getNative(Object, 'create');
+
+/**
+ * Creates a hash object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Hash(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the hash.
+ *
+ * @private
+ * @name clear
+ * @memberOf Hash
+ */
+function hashClear() {
+  this.__data__ = nativeCreate ? nativeCreate(null) : {};
+}
+
+/**
+ * Removes `key` and its value from the hash.
+ *
+ * @private
+ * @name delete
+ * @memberOf Hash
+ * @param {Object} hash The hash to modify.
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function hashDelete(key) {
+  return this.has(key) && delete this.__data__[key];
+}
+
+/**
+ * Gets the hash value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Hash
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function hashGet(key) {
+  var data = this.__data__;
+  if (nativeCreate) {
+    var result = data[key];
+    return result === HASH_UNDEFINED ? undefined : result;
+  }
+  return hasOwnProperty.call(data, key) ? data[key] : undefined;
+}
+
+/**
+ * Checks if a hash value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Hash
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function hashHas(key) {
+  var data = this.__data__;
+  return nativeCreate ? data[key] !== undefined : hasOwnProperty.call(data, key);
+}
+
+/**
+ * Sets the hash `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Hash
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the hash instance.
+ */
+function hashSet(key, value) {
+  var data = this.__data__;
+  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
+  return this;
+}
+
+// Add methods to `Hash`.
+Hash.prototype.clear = hashClear;
+Hash.prototype['delete'] = hashDelete;
+Hash.prototype.get = hashGet;
+Hash.prototype.has = hashHas;
+Hash.prototype.set = hashSet;
+
+/**
+ * Creates an list cache object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function ListCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the list cache.
+ *
+ * @private
+ * @name clear
+ * @memberOf ListCache
+ */
+function listCacheClear() {
+  this.__data__ = [];
+}
+
+/**
+ * Removes `key` and its value from the list cache.
+ *
+ * @private
+ * @name delete
+ * @memberOf ListCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function listCacheDelete(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    return false;
+  }
+  var lastIndex = data.length - 1;
+  if (index == lastIndex) {
+    data.pop();
+  } else {
+    splice.call(data, index, 1);
+  }
+  return true;
+}
+
+/**
+ * Gets the list cache value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf ListCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function listCacheGet(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  return index < 0 ? undefined : data[index][1];
+}
+
+/**
+ * Checks if a list cache value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf ListCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function listCacheHas(key) {
+  return assocIndexOf(this.__data__, key) > -1;
+}
+
+/**
+ * Sets the list cache `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf ListCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the list cache instance.
+ */
+function listCacheSet(key, value) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    data.push([key, value]);
+  } else {
+    data[index][1] = value;
+  }
+  return this;
+}
+
+// Add methods to `ListCache`.
+ListCache.prototype.clear = listCacheClear;
+ListCache.prototype['delete'] = listCacheDelete;
+ListCache.prototype.get = listCacheGet;
+ListCache.prototype.has = listCacheHas;
+ListCache.prototype.set = listCacheSet;
+
+/**
+ * Creates a map cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function MapCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the map.
+ *
+ * @private
+ * @name clear
+ * @memberOf MapCache
+ */
+function mapCacheClear() {
+  this.__data__ = {
+    'hash': new Hash,
+    'map': new (Map || ListCache),
+    'string': new Hash
+  };
+}
+
+/**
+ * Removes `key` and its value from the map.
+ *
+ * @private
+ * @name delete
+ * @memberOf MapCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function mapCacheDelete(key) {
+  return getMapData(this, key)['delete'](key);
+}
+
+/**
+ * Gets the map value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf MapCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function mapCacheGet(key) {
+  return getMapData(this, key).get(key);
+}
+
+/**
+ * Checks if a map value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf MapCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function mapCacheHas(key) {
+  return getMapData(this, key).has(key);
+}
+
+/**
+ * Sets the map `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf MapCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the map cache instance.
+ */
+function mapCacheSet(key, value) {
+  getMapData(this, key).set(key, value);
+  return this;
+}
+
+// Add methods to `MapCache`.
+MapCache.prototype.clear = mapCacheClear;
+MapCache.prototype['delete'] = mapCacheDelete;
+MapCache.prototype.get = mapCacheGet;
+MapCache.prototype.has = mapCacheHas;
+MapCache.prototype.set = mapCacheSet;
+
+/**
+ *
+ * Creates an array cache object to store unique values.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [values] The values to cache.
+ */
+function SetCache(values) {
+  var index = -1,
+      length = values ? values.length : 0;
+
+  this.__data__ = new MapCache;
+  while (++index < length) {
+    this.add(values[index]);
+  }
+}
+
+/**
+ * Adds `value` to the array cache.
+ *
+ * @private
+ * @name add
+ * @memberOf SetCache
+ * @alias push
+ * @param {*} value The value to cache.
+ * @returns {Object} Returns the cache instance.
+ */
+function setCacheAdd(value) {
+  this.__data__.set(value, HASH_UNDEFINED);
+  return this;
+}
+
+/**
+ * Checks if `value` is in the array cache.
+ *
+ * @private
+ * @name has
+ * @memberOf SetCache
+ * @param {*} value The value to search for.
+ * @returns {number} Returns `true` if `value` is found, else `false`.
+ */
+function setCacheHas(value) {
+  return this.__data__.has(value);
+}
+
+// Add methods to `SetCache`.
+SetCache.prototype.add = SetCache.prototype.push = setCacheAdd;
+SetCache.prototype.has = setCacheHas;
+
+/**
+ * Gets the index at which the `key` is found in `array` of key-value pairs.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} key The key to search for.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function assocIndexOf(array, key) {
+  var length = array.length;
+  while (length--) {
+    if (eq(array[length][0], key)) {
+      return length;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.isNative` without bad shim checks.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function,
+ *  else `false`.
+ */
+function baseIsNative(value) {
+  if (!isObject(value) || isMasked(value)) {
+    return false;
+  }
+  var pattern = (isFunction(value) || isHostObject(value)) ? reIsNative : reIsHostCtor;
+  return pattern.test(toSource(value));
+}
+
+/**
+ * The base implementation of `_.uniqBy` without support for iteratee shorthands.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {Function} [iteratee] The iteratee invoked per element.
+ * @param {Function} [comparator] The comparator invoked per element.
+ * @returns {Array} Returns the new duplicate free array.
+ */
+function baseUniq(array, iteratee, comparator) {
+  var index = -1,
+      includes = arrayIncludes,
+      length = array.length,
+      isCommon = true,
+      result = [],
+      seen = result;
+
+  if (comparator) {
+    isCommon = false;
+    includes = arrayIncludesWith;
+  }
+  else if (length >= LARGE_ARRAY_SIZE) {
+    var set = iteratee ? null : createSet(array);
+    if (set) {
+      return setToArray(set);
+    }
+    isCommon = false;
+    includes = cacheHas;
+    seen = new SetCache;
+  }
+  else {
+    seen = iteratee ? [] : result;
+  }
+  outer:
+  while (++index < length) {
+    var value = array[index],
+        computed = iteratee ? iteratee(value) : value;
+
+    value = (comparator || value !== 0) ? value : 0;
+    if (isCommon && computed === computed) {
+      var seenIndex = seen.length;
+      while (seenIndex--) {
+        if (seen[seenIndex] === computed) {
+          continue outer;
+        }
+      }
+      if (iteratee) {
+        seen.push(computed);
+      }
+      result.push(value);
+    }
+    else if (!includes(seen, computed, comparator)) {
+      if (seen !== result) {
+        seen.push(computed);
+      }
+      result.push(value);
+    }
+  }
+  return result;
+}
+
+/**
+ * Creates a set object of `values`.
+ *
+ * @private
+ * @param {Array} values The values to add to the set.
+ * @returns {Object} Returns the new set.
+ */
+var createSet = !(Set && (1 / setToArray(new Set([,-0]))[1]) == INFINITY) ? noop : function(values) {
+  return new Set(values);
+};
+
+/**
+ * Gets the data for `map`.
+ *
+ * @private
+ * @param {Object} map The map to query.
+ * @param {string} key The reference key.
+ * @returns {*} Returns the map data.
+ */
+function getMapData(map, key) {
+  var data = map.__data__;
+  return isKeyable(key)
+    ? data[typeof key == 'string' ? 'string' : 'hash']
+    : data.map;
+}
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = getValue(object, key);
+  return baseIsNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is suitable for use as unique object key.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
+ */
+function isKeyable(value) {
+  var type = typeof value;
+  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
+    ? (value !== '__proto__')
+    : (value === null);
+}
+
+/**
+ * Checks if `func` has its source masked.
+ *
+ * @private
+ * @param {Function} func The function to check.
+ * @returns {boolean} Returns `true` if `func` is masked, else `false`.
+ */
+function isMasked(func) {
+  return !!maskSrcKey && (maskSrcKey in func);
+}
+
+/**
+ * Converts `func` to its source code.
+ *
+ * @private
+ * @param {Function} func The function to process.
+ * @returns {string} Returns the source code.
+ */
+function toSource(func) {
+  if (func != null) {
+    try {
+      return funcToString.call(func);
+    } catch (e) {}
+    try {
+      return (func + '');
+    } catch (e) {}
+  }
+  return '';
+}
+
+/**
+ * Creates a duplicate-free version of an array, using
+ * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * for equality comparisons, in which only the first occurrence of each
+ * element is kept.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Array
+ * @param {Array} array The array to inspect.
+ * @returns {Array} Returns the new duplicate free array.
+ * @example
+ *
+ * _.uniq([2, 1, 2]);
+ * // => [2, 1]
+ */
+function uniq(array) {
+  return (array && array.length)
+    ? baseUniq(array)
+    : [];
+}
+
+/**
+ * Performs a
+ * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * comparison between two values to determine if they are equivalent.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ * var other = { 'a': 1 };
+ *
+ * _.eq(object, object);
+ * // => true
+ *
+ * _.eq(object, other);
+ * // => false
+ *
+ * _.eq('a', 'a');
+ * // => true
+ *
+ * _.eq('a', Object('a'));
+ * // => false
+ *
+ * _.eq(NaN, NaN);
+ * // => true
+ */
+function eq(value, other) {
+  return value === other || (value !== value && other !== other);
+}
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 8-9 which returns 'object' for typed array and other constructors.
+  var tag = isObject(value) ? objectToString.call(value) : '';
+  return tag == funcTag || tag == genTag;
+}
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * This method returns `undefined`.
+ *
+ * @static
+ * @memberOf _
+ * @since 2.3.0
+ * @category Util
+ * @example
+ *
+ * _.times(2, _.noop);
+ * // => [undefined, undefined]
+ */
+function noop() {
+  // No operation performed.
+}
+
+module.exports = uniq;
+
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(8)))
+
+/***/ }),
+/* 81 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = authenticationRequestError;
+
+const { RequestError } = __webpack_require__(64);
+
+function authenticationRequestError(state, error, options) {
+  /* istanbul ignore next */
+  if (!error.headers) throw error;
+
+  const otpRequired = /required/.test(error.headers["x-github-otp"] || "");
+  // handle "2FA required" error only
+  if (error.status !== 401 || !otpRequired) {
+    throw error;
+  }
+
+  if (
+    error.status === 401 &&
+    otpRequired &&
+    error.request &&
+    error.request.headers["x-github-otp"]
+  ) {
+    throw new RequestError(
+      "Invalid one-time password for two-factor authentication",
+      401,
+      {
+        headers: error.headers,
+        request: options
+      }
+    );
+  }
+
+  if (typeof state.auth.on2fa !== "function") {
+    throw new RequestError(
+      "2FA required, but options.on2fa is not a function. See https://github.com/octokit/rest.js#authentication",
+      401,
+      {
+        headers: error.headers,
+        request: options
+      }
+    );
+  }
+
+  return Promise.resolve()
+    .then(() => {
+      return state.auth.on2fa();
+    })
+    .then(oneTimePassword => {
+      const newOptions = Object.assign(options, {
+        headers: Object.assign(
+          { "x-github-otp": oneTimePassword },
+          options.headers
+        )
+      });
+      return state.octokit.request(newOptions);
+    });
+}
+
+
+/***/ }),
+/* 82 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = authenticationPlugin;
+
+const beforeRequest = __webpack_require__(83);
+const requestError = __webpack_require__(86);
+const validate = __webpack_require__(87);
+
+function authenticationPlugin(octokit, options) {
+  if (!options.auth) {
+    return;
+  }
+
+  validate(options.auth);
+
+  const state = {
+    octokit,
+    auth: options.auth
+  };
+
+  octokit.hook.before("request", beforeRequest.bind(null, state));
+  octokit.hook.error("request", requestError.bind(null, state));
+}
+
+
+/***/ }),
+/* 83 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = authenticationBeforeRequest;
+
+const btoa = __webpack_require__(79);
+
+const withAuthorizationPrefix = __webpack_require__(84);
+
+function authenticationBeforeRequest(state, options) {
+  if (typeof state.auth === "string") {
+    options.headers.authorization = withAuthorizationPrefix(state.auth);
+
+    // https://developer.github.com/v3/previews/#integrations
+    if (
+      /^bearer /i.test(state.auth) &&
+      !/machine-man/.test(options.headers.accept)
+    ) {
+      const acceptHeaders = options.headers.accept
+        .split(",")
+        .concat("application/vnd.github.machine-man-preview+json");
+      options.headers.accept = acceptHeaders.filter(Boolean).join(",");
+    }
+
+    return;
+  }
+
+  if (state.auth.username) {
+    const hash = btoa(`${state.auth.username}:${state.auth.password}`);
+    options.headers.authorization = `Basic ${hash}`;
+    if (state.otp) {
+      options.headers["x-github-otp"] = state.otp;
+    }
+    return;
+  }
+
+  if (state.auth.clientId) {
+    // There is a special case for OAuth applications, when `clientId` and `clientSecret` is passed as
+    // Basic Authorization instead of query parameters. The only routes where that applies share the same
+    // URL though: `/applications/:client_id/tokens/:access_token`.
+    //
+    //  1. [Check an authorization](https://developer.github.com/v3/oauth_authorizations/#check-an-authorization)
+    //  2. [Reset an authorization](https://developer.github.com/v3/oauth_authorizations/#reset-an-authorization)
+    //  3. [Revoke an authorization for an application](https://developer.github.com/v3/oauth_authorizations/#revoke-an-authorization-for-an-application)
+    //
+    // We identify by checking the URL. It must merge both "/applications/:client_id/tokens/:access_token"
+    // as well as "/applications/123/tokens/token456"
+    if (/\/applications\/:?[\w_]+\/tokens\/:?[\w_]+($|\?)/.test(options.url)) {
+      const hash = btoa(`${state.auth.clientId}:${state.auth.clientSecret}`);
+      options.headers.authorization = `Basic ${hash}`;
+      return;
+    }
+
+    options.url += options.url.indexOf("?") === -1 ? "?" : "&";
+    options.url += `client_id=${state.auth.clientId}&client_secret=${state.auth.clientSecret}`;
+    return;
+  }
+
+  return Promise.resolve()
+
+    .then(() => {
+      return state.auth();
+    })
+
+    .then(authorization => {
+      options.headers.authorization = withAuthorizationPrefix(authorization);
+    });
+}
+
+
+/***/ }),
+/* 84 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = withAuthorizationPrefix;
+
+const atob = __webpack_require__(85);
+
+const REGEX_IS_BASIC_AUTH = /^[\w-]+:/;
+
+function withAuthorizationPrefix(authorization) {
+  if (/^(basic|bearer|token) /i.test(authorization)) {
+    return authorization;
+  }
+
+  try {
+    if (REGEX_IS_BASIC_AUTH.test(atob(authorization))) {
+      return `basic ${authorization}`;
+    }
+  } catch (error) {}
+
+  if (authorization.split(/\./).length === 3) {
+    return `bearer ${authorization}`;
+  }
+
+  return `token ${authorization}`;
+}
+
+
+/***/ }),
+/* 85 */
+/***/ (function(module, exports) {
+
+module.exports = function _atob(str) {
+  return atob(str)
+}
+
+
+/***/ }),
+/* 86 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = authenticationRequestError;
+
+const { RequestError } = __webpack_require__(64);
+
+function authenticationRequestError(state, error, options) {
+  if (!error.headers) throw error;
+
+  const otpRequired = /required/.test(error.headers["x-github-otp"] || "");
+  // handle "2FA required" error only
+  if (error.status !== 401 || !otpRequired) {
+    throw error;
+  }
+
+  if (
+    error.status === 401 &&
+    otpRequired &&
+    error.request &&
+    error.request.headers["x-github-otp"]
+  ) {
+    if (state.otp) {
+      delete state.otp; // no longer valid, request again
+    } else {
+      throw new RequestError(
+        "Invalid one-time password for two-factor authentication",
+        401,
+        {
+          headers: error.headers,
+          request: options
+        }
+      );
+    }
+  }
+
+  if (typeof state.auth.on2fa !== "function") {
+    throw new RequestError(
+      "2FA required, but options.on2fa is not a function. See https://github.com/octokit/rest.js#authentication",
+      401,
+      {
+        headers: error.headers,
+        request: options
+      }
+    );
+  }
+
+  return Promise.resolve()
+    .then(() => {
+      return state.auth.on2fa();
+    })
+    .then(oneTimePassword => {
+      const newOptions = Object.assign(options, {
+        headers: Object.assign(options.headers, {
+          "x-github-otp": oneTimePassword
+        })
+      });
+      return state.octokit.request(newOptions).then(response => {
+        // If OTP still valid, then persist it for following requests
+        state.otp = oneTimePassword;
+        return response;
+      });
+    });
+}
+
+
+/***/ }),
+/* 87 */
+/***/ (function(module, exports) {
+
+module.exports = validateAuth;
+
+function validateAuth(auth) {
+  if (typeof auth === "string") {
+    return;
+  }
+
+  if (typeof auth === "function") {
+    return;
+  }
+
+  if (auth.username && auth.password) {
+    return;
+  }
+
+  if (auth.clientId && auth.clientSecret) {
+    return;
+  }
+
+  throw new Error(`Invalid "auth" option: ${JSON.stringify(auth)}`);
+}
+
+
+/***/ }),
+/* 88 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = paginatePlugin;
+
+const iterator = __webpack_require__(89);
+const paginate = __webpack_require__(91);
+
+function paginatePlugin(octokit) {
+  octokit.paginate = paginate.bind(null, octokit);
+  octokit.paginate.iterator = iterator.bind(null, octokit);
+}
+
+
+/***/ }),
+/* 89 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = iterator;
+
+const normalizePaginatedListResponse = __webpack_require__(90);
+
+function iterator(octokit, options) {
+  const headers = options.headers;
+  let url = octokit.request.endpoint(options).url;
+
+  return {
+    [Symbol.asyncIterator]: () => ({
+      next() {
+        if (!url) {
+          return Promise.resolve({ done: true });
+        }
+
+        return octokit
+          .request({ url, headers })
+
+          .then(response => {
+            normalizePaginatedListResponse(octokit, url, response);
+
+            // `response.headers.link` format:
+            // '<https://api.github.com/users/aseemk/followers?page=2>; rel="next", <https://api.github.com/users/aseemk/followers?page=2>; rel="last"'
+            // sets `url` to undefined if "next" URL is not present or `link` header is not set
+            url = ((response.headers.link || "").match(
+              /<([^>]+)>;\s*rel="next"/
+            ) || [])[1];
+
+            return { value: response };
+          });
+      }
+    })
+  };
+}
+
+
+/***/ }),
+/* 90 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Some “list” response that can be paginated have a different response structure
+ *
+ * They have a `total_count` key in the response (search also has `incomplete_results`,
+ * /installation/repositories also has `repository_selection`), as well as a key with
+ * the list of the items which name varies from endpoint to endpoint:
+ *
+ * - https://developer.github.com/v3/search/#example (key `items`)
+ * - https://developer.github.com/v3/checks/runs/#response-3 (key: `check_runs`)
+ * - https://developer.github.com/v3/checks/suites/#response-1 (key: `check_suites`)
+ * - https://developer.github.com/v3/apps/installations/#list-repositories (key: `repositories`)
+ * - https://developer.github.com/v3/apps/installations/#list-installations-for-a-user (key `installations`)
+ *
+ * Octokit normalizes these responses so that paginated results are always returned following
+ * the same structure. One challenge is that if the list response has only one page, no Link
+ * header is provided, so this header alone is not sufficient to check wether a response is
+ * paginated or not. For the exceptions with the namespace, a fallback check for the route
+ * paths has to be added in order to normalize the response. We cannot check for the total_count
+ * property because it also exists in the response of Get the combined status for a specific ref.
+ */
+
+module.exports = normalizePaginatedListResponse;
+
+const { Deprecation } = __webpack_require__(65);
+const once = __webpack_require__(66);
+
+const deprecateIncompleteResults = once((log, deprecation) =>
+  log.warn(deprecation)
+);
+const deprecateTotalCount = once((log, deprecation) => log.warn(deprecation));
+const deprecateNamespace = once((log, deprecation) => log.warn(deprecation));
+
+const REGEX_IS_SEARCH_PATH = /^\/search\//;
+const REGEX_IS_CHECKS_PATH = /^\/repos\/[^/]+\/[^/]+\/commits\/[^/]+\/(check-runs|check-suites)/;
+const REGEX_IS_INSTALLATION_REPOSITORIES_PATH = /^\/installation\/repositories/;
+const REGEX_IS_USER_INSTALLATIONS_PATH = /^\/user\/installations/;
+
+function normalizePaginatedListResponse(octokit, url, response) {
+  const path = url.replace(octokit.request.endpoint.DEFAULTS.baseUrl, "");
+  if (
+    !REGEX_IS_SEARCH_PATH.test(path) &&
+    !REGEX_IS_CHECKS_PATH.test(path) &&
+    !REGEX_IS_INSTALLATION_REPOSITORIES_PATH.test(path) &&
+    !REGEX_IS_USER_INSTALLATIONS_PATH.test(path)
+  ) {
+    return;
+  }
+
+  // keep the additional properties intact to avoid a breaking change,
+  // but log a deprecation warning when accessed
+  const incompleteResults = response.data.incomplete_results;
+  const repositorySelection = response.data.repository_selection;
+  const totalCount = response.data.total_count;
+  delete response.data.incomplete_results;
+  delete response.data.repository_selection;
+  delete response.data.total_count;
+
+  const namespaceKey = Object.keys(response.data)[0];
+
+  response.data = response.data[namespaceKey];
+
+  Object.defineProperty(response.data, namespaceKey, {
+    get() {
+      deprecateNamespace(
+        octokit.log,
+        new Deprecation(
+          `[@octokit/rest] "result.data.${namespaceKey}" is deprecated. Use "result.data" instead`
+        )
+      );
+      return response.data;
+    }
+  });
+
+  if (typeof incompleteResults !== "undefined") {
+    Object.defineProperty(response.data, "incomplete_results", {
+      get() {
+        deprecateIncompleteResults(
+          octokit.log,
+          new Deprecation(
+            '[@octokit/rest] "result.data.incomplete_results" is deprecated.'
+          )
+        );
+        return incompleteResults;
+      }
+    });
+  }
+
+  if (typeof repositorySelection !== "undefined") {
+    Object.defineProperty(response.data, "repository_selection", {
+      get() {
+        deprecateTotalCount(
+          octokit.log,
+          new Deprecation(
+            '[@octokit/rest] "result.data.repository_selection" is deprecated.'
+          )
+        );
+        return repositorySelection;
+      }
+    });
+  }
+
+  Object.defineProperty(response.data, "total_count", {
+    get() {
+      deprecateTotalCount(
+        octokit.log,
+        new Deprecation(
+          '[@octokit/rest] "result.data.total_count" is deprecated.'
+        )
+      );
+      return totalCount;
+    }
+  });
+}
+
+
+/***/ }),
+/* 91 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = paginate;
+
+const iterator = __webpack_require__(89);
+
+function paginate(octokit, route, options, mapFn) {
+  if (typeof options === "function") {
+    mapFn = options;
+    options = undefined;
+  }
+  options = octokit.request.endpoint.merge(route, options);
+  return gather(
+    octokit,
+    [],
+    iterator(octokit, options)[Symbol.asyncIterator](),
+    mapFn
+  );
+}
+
+function gather(octokit, results, iterator, mapFn) {
+  return iterator.next().then(result => {
+    if (result.done) {
+      return results;
+    }
+
+    let earlyExit = false;
+    function done() {
+      earlyExit = true;
+    }
+
+    results = results.concat(
+      mapFn ? mapFn(result.value, done) : result.value.data
+    );
+
+    if (earlyExit) {
+      return results;
+    }
+
+    return gather(octokit, results, iterator, mapFn);
+  });
+}
+
+
+/***/ }),
+/* 92 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = octokitRestNormalizeGitReferenceResponses;
+
+const { RequestError } = __webpack_require__(64);
+
+function octokitRestNormalizeGitReferenceResponses(octokit) {
+  octokit.hook.wrap("request", (request, options) => {
+    const isGetOrListRefRequest = /\/repos\/:?\w+\/:?\w+\/git\/refs\/:?\w+/.test(
+      options.url
+    );
+
+    if (!isGetOrListRefRequest) {
+      return request(options);
+    }
+
+    const isGetRefRequest = "ref" in options;
+
+    return request(options)
+      .then(response => {
+        // request single reference
+        if (isGetRefRequest) {
+          if (Array.isArray(response.data)) {
+            throw new RequestError(
+              `More than one reference found for "${options.ref}"`,
+              404,
+              {
+                request: options
+              }
+            );
+          }
+
+          // ✅ received single reference
+          return response;
+        }
+
+        // request list of references
+        if (!Array.isArray(response.data)) {
+          response.data = [response.data];
+        }
+
+        return response;
+      })
+
+      .catch(error => {
+        if (isGetRefRequest) {
+          throw error;
+        }
+
+        if (error.status === 404) {
+          return {
+            status: 200,
+            headers: error.headers,
+            data: []
+          };
+        }
+
+        throw error;
+      });
+  });
+}
+
+
+/***/ }),
+/* 93 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = octokitRegisterEndpoints;
+
+const registerEndpoints = __webpack_require__(94);
+
+function octokitRegisterEndpoints(octokit) {
+  octokit.registerEndpoints = registerEndpoints.bind(null, octokit);
+}
+
+
+/***/ }),
+/* 94 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = registerEndpoints;
+
+const { Deprecation } = __webpack_require__(65);
+
+function registerEndpoints(octokit, routes) {
+  Object.keys(routes).forEach(namespaceName => {
+    if (!octokit[namespaceName]) {
+      octokit[namespaceName] = {};
+    }
+
+    Object.keys(routes[namespaceName]).forEach(apiName => {
+      const apiOptions = routes[namespaceName][apiName];
+
+      const endpointDefaults = ["method", "url", "headers"].reduce(
+        (map, key) => {
+          if (typeof apiOptions[key] !== "undefined") {
+            map[key] = apiOptions[key];
+          }
+
+          return map;
+        },
+        {}
+      );
+
+      endpointDefaults.request = {
+        validate: apiOptions.params
+      };
+
+      let request = octokit.request.defaults(endpointDefaults);
+
+      // patch request & endpoint methods to support deprecated parameters.
+      // Not the most elegant solution, but we don’t want to move deprecation
+      // logic into octokit/endpoint.js as it’s out of scope
+      const hasDeprecatedParam = Object.keys(apiOptions.params || {}).find(
+        key => apiOptions.params[key].deprecated
+      );
+      if (hasDeprecatedParam) {
+        const patch = patchForDeprecation.bind(null, octokit, apiOptions);
+        request = patch(
+          octokit.request.defaults(endpointDefaults),
+          `.${namespaceName}.${apiName}()`
+        );
+        request.endpoint = patch(
+          request.endpoint,
+          `.${namespaceName}.${apiName}.endpoint()`
+        );
+        request.endpoint.merge = patch(
+          request.endpoint.merge,
+          `.${namespaceName}.${apiName}.endpoint.merge()`
+        );
+      }
+
+      if (apiOptions.deprecated) {
+        octokit[namespaceName][apiName] = function deprecatedEndpointMethod() {
+          octokit.log.warn(
+            new Deprecation(`[@octokit/rest] ${apiOptions.deprecated}`)
+          );
+          octokit[namespaceName][apiName] = request;
+          return request.apply(null, arguments);
+        };
+
+        return;
+      }
+
+      octokit[namespaceName][apiName] = request;
+    });
+  });
+}
+
+function patchForDeprecation(octokit, apiOptions, method, methodName) {
+  const patchedMethod = options => {
+    options = Object.assign({}, options);
+
+    Object.keys(options).forEach(key => {
+      if (apiOptions.params[key] && apiOptions.params[key].deprecated) {
+        const aliasKey = apiOptions.params[key].alias;
+
+        octokit.log.warn(
+          new Deprecation(
+            `[@octokit/rest] "${key}" parameter is deprecated for "${methodName}". Use "${aliasKey}" instead`
+          )
+        );
+
+        if (!(aliasKey in options)) {
+          options[aliasKey] = options[key];
+        }
+        delete options[key];
+      }
+    });
+
+    return method(options);
+  };
+  Object.keys(method).forEach(key => {
+    patchedMethod[key] = method[key];
+  });
+
+  return patchedMethod;
+}
+
+
+/***/ }),
+/* 95 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = octokitRestApiEndpoints;
+
+const ROUTES = __webpack_require__(96);
+
+function octokitRestApiEndpoints(octokit) {
+  // Aliasing scopes for backward compatibility
+  // See https://github.com/octokit/rest.js/pull/1134
+  ROUTES.gitdata = ROUTES.git;
+  ROUTES.authorization = ROUTES.oauthAuthorizations;
+  ROUTES.pullRequests = ROUTES.pulls;
+
+  octokit.registerEndpoints(ROUTES);
+}
+
+
+/***/ }),
+/* 96 */
+/***/ (function(module) {
+
+module.exports = JSON.parse("{\"activity\":{\"checkStarringRepo\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/starred/:owner/:repo\"},\"deleteRepoSubscription\":{\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/subscription\"},\"deleteThreadSubscription\":{\"method\":\"DELETE\",\"params\":{\"thread_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/notifications/threads/:thread_id/subscription\"},\"getRepoSubscription\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/subscription\"},\"getThread\":{\"method\":\"GET\",\"params\":{\"thread_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/notifications/threads/:thread_id\"},\"getThreadSubscription\":{\"method\":\"GET\",\"params\":{\"thread_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/notifications/threads/:thread_id/subscription\"},\"listEventsForOrg\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/events/orgs/:org\"},\"listEventsForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/events\"},\"listFeeds\":{\"method\":\"GET\",\"params\":{},\"url\":\"/feeds\"},\"listNotifications\":{\"method\":\"GET\",\"params\":{\"all\":{\"type\":\"boolean\"},\"before\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"participating\":{\"type\":\"boolean\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"}},\"url\":\"/notifications\"},\"listNotificationsForRepo\":{\"method\":\"GET\",\"params\":{\"all\":{\"type\":\"boolean\"},\"before\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"participating\":{\"type\":\"boolean\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"since\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/notifications\"},\"listPublicEvents\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/events\"},\"listPublicEventsForOrg\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/events\"},\"listPublicEventsForRepoNetwork\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/networks/:owner/:repo/events\"},\"listPublicEventsForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/events/public\"},\"listReceivedEventsForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/received_events\"},\"listReceivedPublicEventsForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/received_events/public\"},\"listRepoEvents\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/events\"},\"listReposStarredByAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/user/starred\"},\"listReposStarredByUser\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/starred\"},\"listReposWatchedByUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/subscriptions\"},\"listStargazersForRepo\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/stargazers\"},\"listWatchedReposForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/subscriptions\"},\"listWatchersForRepo\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/subscribers\"},\"markAsRead\":{\"method\":\"PUT\",\"params\":{\"last_read_at\":{\"type\":\"string\"}},\"url\":\"/notifications\"},\"markNotificationsAsReadForRepo\":{\"method\":\"PUT\",\"params\":{\"last_read_at\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/notifications\"},\"markThreadAsRead\":{\"method\":\"PATCH\",\"params\":{\"thread_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/notifications/threads/:thread_id\"},\"setRepoSubscription\":{\"method\":\"PUT\",\"params\":{\"ignored\":{\"type\":\"boolean\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"subscribed\":{\"type\":\"boolean\"}},\"url\":\"/repos/:owner/:repo/subscription\"},\"setThreadSubscription\":{\"method\":\"PUT\",\"params\":{\"ignored\":{\"type\":\"boolean\"},\"thread_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/notifications/threads/:thread_id/subscription\"},\"starRepo\":{\"method\":\"PUT\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/starred/:owner/:repo\"},\"unstarRepo\":{\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/starred/:owner/:repo\"}},\"apps\":{\"addRepoToInstallation\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"PUT\",\"params\":{\"installation_id\":{\"required\":true,\"type\":\"integer\"},\"repository_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/installations/:installation_id/repositories/:repository_id\"},\"checkAccountIsAssociatedWithAny\":{\"method\":\"GET\",\"params\":{\"account_id\":{\"required\":true,\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/marketplace_listing/accounts/:account_id\"},\"checkAccountIsAssociatedWithAnyStubbed\":{\"method\":\"GET\",\"params\":{\"account_id\":{\"required\":true,\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/marketplace_listing/stubbed/accounts/:account_id\"},\"createContentAttachment\":{\"headers\":{\"accept\":\"application/vnd.github.corsair-preview+json\"},\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"content_reference_id\":{\"required\":true,\"type\":\"integer\"},\"title\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/content_references/:content_reference_id/attachments\"},\"createFromManifest\":{\"headers\":{\"accept\":\"application/vnd.github.fury-preview+json\"},\"method\":\"POST\",\"params\":{\"code\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/app-manifests/:code/conversions\"},\"createInstallationToken\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"POST\",\"params\":{\"installation_id\":{\"required\":true,\"type\":\"integer\"},\"permissions\":{\"type\":\"object\"},\"repository_ids\":{\"type\":\"integer[]\"}},\"url\":\"/app/installations/:installation_id/access_tokens\"},\"deleteInstallation\":{\"headers\":{\"accept\":\"application/vnd.github.gambit-preview+json,application/vnd.github.machine-man-preview+json\"},\"method\":\"DELETE\",\"params\":{\"installation_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/app/installations/:installation_id\"},\"findOrgInstallation\":{\"deprecated\":\"octokit.apps.findOrgInstallation() has been renamed to octokit.apps.getOrgInstallation() (2019-04-10)\",\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/installation\"},\"findRepoInstallation\":{\"deprecated\":\"octokit.apps.findRepoInstallation() has been renamed to octokit.apps.getRepoInstallation() (2019-04-10)\",\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/installation\"},\"findUserInstallation\":{\"deprecated\":\"octokit.apps.findUserInstallation() has been renamed to octokit.apps.getUserInstallation() (2019-04-10)\",\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/installation\"},\"getAuthenticated\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{},\"url\":\"/app\"},\"getBySlug\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"app_slug\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/apps/:app_slug\"},\"getInstallation\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"installation_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/app/installations/:installation_id\"},\"getOrgInstallation\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/installation\"},\"getRepoInstallation\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/installation\"},\"getUserInstallation\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/installation\"},\"listAccountsUserOrOrgOnPlan\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"plan_id\":{\"required\":true,\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/marketplace_listing/plans/:plan_id/accounts\"},\"listAccountsUserOrOrgOnPlanStubbed\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"plan_id\":{\"required\":true,\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/marketplace_listing/stubbed/plans/:plan_id/accounts\"},\"listInstallationReposForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"installation_id\":{\"required\":true,\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/installations/:installation_id/repositories\"},\"listInstallations\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/app/installations\"},\"listInstallationsForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/installations\"},\"listMarketplacePurchasesForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/marketplace_purchases\"},\"listMarketplacePurchasesForAuthenticatedUserStubbed\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/marketplace_purchases/stubbed\"},\"listPlans\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/marketplace_listing/plans\"},\"listPlansStubbed\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/marketplace_listing/stubbed/plans\"},\"listRepos\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/installation/repositories\"},\"removeRepoFromInstallation\":{\"headers\":{\"accept\":\"application/vnd.github.machine-man-preview+json\"},\"method\":\"DELETE\",\"params\":{\"installation_id\":{\"required\":true,\"type\":\"integer\"},\"repository_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/installations/:installation_id/repositories/:repository_id\"}},\"checks\":{\"create\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"POST\",\"params\":{\"actions\":{\"type\":\"object[]\"},\"actions[].description\":{\"required\":true,\"type\":\"string\"},\"actions[].identifier\":{\"required\":true,\"type\":\"string\"},\"actions[].label\":{\"required\":true,\"type\":\"string\"},\"completed_at\":{\"type\":\"string\"},\"conclusion\":{\"enum\":[\"success\",\"failure\",\"neutral\",\"cancelled\",\"timed_out\",\"action_required\"],\"type\":\"string\"},\"details_url\":{\"type\":\"string\"},\"external_id\":{\"type\":\"string\"},\"head_sha\":{\"required\":true,\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"output\":{\"type\":\"object\"},\"output.annotations\":{\"type\":\"object[]\"},\"output.annotations[].annotation_level\":{\"enum\":[\"notice\",\"warning\",\"failure\"],\"required\":true,\"type\":\"string\"},\"output.annotations[].end_column\":{\"type\":\"integer\"},\"output.annotations[].end_line\":{\"required\":true,\"type\":\"integer\"},\"output.annotations[].message\":{\"required\":true,\"type\":\"string\"},\"output.annotations[].path\":{\"required\":true,\"type\":\"string\"},\"output.annotations[].raw_details\":{\"type\":\"string\"},\"output.annotations[].start_column\":{\"type\":\"integer\"},\"output.annotations[].start_line\":{\"required\":true,\"type\":\"integer\"},\"output.annotations[].title\":{\"type\":\"string\"},\"output.images\":{\"type\":\"object[]\"},\"output.images[].alt\":{\"required\":true,\"type\":\"string\"},\"output.images[].caption\":{\"type\":\"string\"},\"output.images[].image_url\":{\"required\":true,\"type\":\"string\"},\"output.summary\":{\"required\":true,\"type\":\"string\"},\"output.text\":{\"type\":\"string\"},\"output.title\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"started_at\":{\"type\":\"string\"},\"status\":{\"enum\":[\"queued\",\"in_progress\",\"completed\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-runs\"},\"createSuite\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"POST\",\"params\":{\"head_sha\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-suites\"},\"get\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"GET\",\"params\":{\"check_run_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-runs/:check_run_id\"},\"getSuite\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"GET\",\"params\":{\"check_suite_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-suites/:check_suite_id\"},\"listAnnotations\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"GET\",\"params\":{\"check_run_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-runs/:check_run_id/annotations\"},\"listForRef\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"GET\",\"params\":{\"check_name\":{\"type\":\"string\"},\"filter\":{\"enum\":[\"latest\",\"all\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"status\":{\"enum\":[\"queued\",\"in_progress\",\"completed\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:ref/check-runs\"},\"listForSuite\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"GET\",\"params\":{\"check_name\":{\"type\":\"string\"},\"check_suite_id\":{\"required\":true,\"type\":\"integer\"},\"filter\":{\"enum\":[\"latest\",\"all\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"status\":{\"enum\":[\"queued\",\"in_progress\",\"completed\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-suites/:check_suite_id/check-runs\"},\"listSuitesForRef\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"GET\",\"params\":{\"app_id\":{\"type\":\"integer\"},\"check_name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:ref/check-suites\"},\"rerequestSuite\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"POST\",\"params\":{\"check_suite_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-suites/:check_suite_id/rerequest\"},\"setSuitesPreferences\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"PATCH\",\"params\":{\"auto_trigger_checks\":{\"type\":\"object[]\"},\"auto_trigger_checks[].app_id\":{\"required\":true,\"type\":\"integer\"},\"auto_trigger_checks[].setting\":{\"required\":true,\"type\":\"boolean\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-suites/preferences\"},\"update\":{\"headers\":{\"accept\":\"application/vnd.github.antiope-preview+json\"},\"method\":\"PATCH\",\"params\":{\"actions\":{\"type\":\"object[]\"},\"actions[].description\":{\"required\":true,\"type\":\"string\"},\"actions[].identifier\":{\"required\":true,\"type\":\"string\"},\"actions[].label\":{\"required\":true,\"type\":\"string\"},\"check_run_id\":{\"required\":true,\"type\":\"integer\"},\"completed_at\":{\"type\":\"string\"},\"conclusion\":{\"enum\":[\"success\",\"failure\",\"neutral\",\"cancelled\",\"timed_out\",\"action_required\"],\"type\":\"string\"},\"details_url\":{\"type\":\"string\"},\"external_id\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"output\":{\"type\":\"object\"},\"output.annotations\":{\"type\":\"object[]\"},\"output.annotations[].annotation_level\":{\"enum\":[\"notice\",\"warning\",\"failure\"],\"required\":true,\"type\":\"string\"},\"output.annotations[].end_column\":{\"type\":\"integer\"},\"output.annotations[].end_line\":{\"required\":true,\"type\":\"integer\"},\"output.annotations[].message\":{\"required\":true,\"type\":\"string\"},\"output.annotations[].path\":{\"required\":true,\"type\":\"string\"},\"output.annotations[].raw_details\":{\"type\":\"string\"},\"output.annotations[].start_column\":{\"type\":\"integer\"},\"output.annotations[].start_line\":{\"required\":true,\"type\":\"integer\"},\"output.annotations[].title\":{\"type\":\"string\"},\"output.images\":{\"type\":\"object[]\"},\"output.images[].alt\":{\"required\":true,\"type\":\"string\"},\"output.images[].caption\":{\"type\":\"string\"},\"output.images[].image_url\":{\"required\":true,\"type\":\"string\"},\"output.summary\":{\"required\":true,\"type\":\"string\"},\"output.text\":{\"type\":\"string\"},\"output.title\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"started_at\":{\"type\":\"string\"},\"status\":{\"enum\":[\"queued\",\"in_progress\",\"completed\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/check-runs/:check_run_id\"}},\"codesOfConduct\":{\"getConductCode\":{\"headers\":{\"accept\":\"application/vnd.github.scarlet-witch-preview+json\"},\"method\":\"GET\",\"params\":{\"key\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/codes_of_conduct/:key\"},\"getForRepo\":{\"headers\":{\"accept\":\"application/vnd.github.scarlet-witch-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/community/code_of_conduct\"},\"listConductCodes\":{\"headers\":{\"accept\":\"application/vnd.github.scarlet-witch-preview+json\"},\"method\":\"GET\",\"params\":{},\"url\":\"/codes_of_conduct\"}},\"emojis\":{\"get\":{\"method\":\"GET\",\"params\":{},\"url\":\"/emojis\"}},\"gists\":{\"checkIsStarred\":{\"method\":\"GET\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/star\"},\"create\":{\"method\":\"POST\",\"params\":{\"description\":{\"type\":\"string\"},\"files\":{\"required\":true,\"type\":\"object\"},\"files.content\":{\"type\":\"string\"},\"public\":{\"type\":\"boolean\"}},\"url\":\"/gists\"},\"createComment\":{\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/comments\"},\"delete\":{\"method\":\"DELETE\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id\"},\"deleteComment\":{\"method\":\"DELETE\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/comments/:comment_id\"},\"fork\":{\"method\":\"POST\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/forks\"},\"get\":{\"method\":\"GET\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id\"},\"getComment\":{\"method\":\"GET\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/comments/:comment_id\"},\"getRevision\":{\"method\":\"GET\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/:sha\"},\"list\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"}},\"url\":\"/gists\"},\"listComments\":{\"method\":\"GET\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/gists/:gist_id/comments\"},\"listCommits\":{\"method\":\"GET\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/gists/:gist_id/commits\"},\"listForks\":{\"method\":\"GET\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/gists/:gist_id/forks\"},\"listPublic\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"}},\"url\":\"/gists/public\"},\"listPublicForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/gists\"},\"listStarred\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"}},\"url\":\"/gists/starred\"},\"star\":{\"method\":\"PUT\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/star\"},\"unstar\":{\"method\":\"DELETE\",\"params\":{\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/star\"},\"update\":{\"method\":\"PATCH\",\"params\":{\"description\":{\"type\":\"string\"},\"files\":{\"type\":\"object\"},\"files.content\":{\"type\":\"string\"},\"files.filename\":{\"type\":\"string\"},\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id\"},\"updateComment\":{\"method\":\"PATCH\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"gist_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gists/:gist_id/comments/:comment_id\"}},\"git\":{\"createBlob\":{\"method\":\"POST\",\"params\":{\"content\":{\"required\":true,\"type\":\"string\"},\"encoding\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/blobs\"},\"createCommit\":{\"method\":\"POST\",\"params\":{\"author\":{\"type\":\"object\"},\"author.date\":{\"type\":\"string\"},\"author.email\":{\"type\":\"string\"},\"author.name\":{\"type\":\"string\"},\"committer\":{\"type\":\"object\"},\"committer.date\":{\"type\":\"string\"},\"committer.email\":{\"type\":\"string\"},\"committer.name\":{\"type\":\"string\"},\"message\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"parents\":{\"required\":true,\"type\":\"string[]\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"signature\":{\"type\":\"string\"},\"tree\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/commits\"},\"createRef\":{\"method\":\"POST\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/refs\"},\"createTag\":{\"method\":\"POST\",\"params\":{\"message\":{\"required\":true,\"type\":\"string\"},\"object\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tag\":{\"required\":true,\"type\":\"string\"},\"tagger\":{\"type\":\"object\"},\"tagger.date\":{\"type\":\"string\"},\"tagger.email\":{\"type\":\"string\"},\"tagger.name\":{\"type\":\"string\"},\"type\":{\"enum\":[\"commit\",\"tree\",\"blob\"],\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/tags\"},\"createTree\":{\"method\":\"POST\",\"params\":{\"base_tree\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tree\":{\"required\":true,\"type\":\"object[]\"},\"tree[].content\":{\"type\":\"string\"},\"tree[].mode\":{\"enum\":[\"100644\",\"100755\",\"040000\",\"160000\",\"120000\"],\"type\":\"string\"},\"tree[].path\":{\"type\":\"string\"},\"tree[].sha\":{\"type\":\"string\"},\"tree[].type\":{\"enum\":[\"blob\",\"tree\",\"commit\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/trees\"},\"deleteRef\":{\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/refs/:ref\"},\"getBlob\":{\"method\":\"GET\",\"params\":{\"file_sha\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/blobs/:file_sha\"},\"getCommit\":{\"method\":\"GET\",\"params\":{\"commit_sha\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/commits/:commit_sha\"},\"getRef\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/refs/:ref\"},\"getTag\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tag_sha\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/tags/:tag_sha\"},\"getTree\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"recursive\":{\"enum\":[\"1\"],\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tree_sha\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/trees/:tree_sha\"},\"listRefs\":{\"method\":\"GET\",\"params\":{\"namespace\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/refs/:namespace\"},\"updateRef\":{\"method\":\"PATCH\",\"params\":{\"force\":{\"type\":\"boolean\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/git/refs/:ref\"}},\"gitignore\":{\"getTemplate\":{\"method\":\"GET\",\"params\":{\"name\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/gitignore/templates/:name\"},\"listTemplates\":{\"method\":\"GET\",\"params\":{},\"url\":\"/gitignore/templates\"}},\"interactions\":{\"addOrUpdateRestrictionsForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.sombra-preview+json\"},\"method\":\"PUT\",\"params\":{\"limit\":{\"enum\":[\"existing_users\",\"contributors_only\",\"collaborators_only\"],\"required\":true,\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/interaction-limits\"},\"addOrUpdateRestrictionsForRepo\":{\"headers\":{\"accept\":\"application/vnd.github.sombra-preview+json\"},\"method\":\"PUT\",\"params\":{\"limit\":{\"enum\":[\"existing_users\",\"contributors_only\",\"collaborators_only\"],\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/interaction-limits\"},\"getRestrictionsForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.sombra-preview+json\"},\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/interaction-limits\"},\"getRestrictionsForRepo\":{\"headers\":{\"accept\":\"application/vnd.github.sombra-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/interaction-limits\"},\"removeRestrictionsForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.sombra-preview+json\"},\"method\":\"DELETE\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/interaction-limits\"},\"removeRestrictionsForRepo\":{\"headers\":{\"accept\":\"application/vnd.github.sombra-preview+json\"},\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/interaction-limits\"}},\"issues\":{\"addAssignees\":{\"method\":\"POST\",\"params\":{\"assignees\":{\"type\":\"string[]\"},\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/assignees\"},\"addLabels\":{\"method\":\"POST\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"labels\":{\"required\":true,\"type\":\"string[]\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/labels\"},\"checkAssignee\":{\"method\":\"GET\",\"params\":{\"assignee\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/assignees/:assignee\"},\"create\":{\"method\":\"POST\",\"params\":{\"assignee\":{\"type\":\"string\"},\"assignees\":{\"type\":\"string[]\"},\"body\":{\"type\":\"string\"},\"labels\":{\"type\":\"string[]\"},\"milestone\":{\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"title\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues\"},\"createComment\":{\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/comments\"},\"createLabel\":{\"method\":\"POST\",\"params\":{\"color\":{\"required\":true,\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/labels\"},\"createMilestone\":{\"method\":\"POST\",\"params\":{\"description\":{\"type\":\"string\"},\"due_on\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\"],\"type\":\"string\"},\"title\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/milestones\"},\"deleteComment\":{\"method\":\"DELETE\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/comments/:comment_id\"},\"deleteLabel\":{\"method\":\"DELETE\",\"params\":{\"name\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/labels/:name\"},\"deleteMilestone\":{\"method\":\"DELETE\",\"params\":{\"milestone_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"milestone_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/milestones/:milestone_number\"},\"get\":{\"method\":\"GET\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number\"},\"getComment\":{\"method\":\"GET\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/comments/:comment_id\"},\"getEvent\":{\"method\":\"GET\",\"params\":{\"event_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/events/:event_id\"},\"getLabel\":{\"method\":\"GET\",\"params\":{\"name\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/labels/:name\"},\"getMilestone\":{\"method\":\"GET\",\"params\":{\"milestone_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"milestone_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/milestones/:milestone_number\"},\"list\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"filter\":{\"enum\":[\"assigned\",\"created\",\"mentioned\",\"subscribed\",\"all\"],\"type\":\"string\"},\"labels\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"comments\"],\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/issues\"},\"listAssignees\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/assignees\"},\"listComments\":{\"method\":\"GET\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"since\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/comments\"},\"listCommentsForRepo\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"since\":{\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/comments\"},\"listEvents\":{\"method\":\"GET\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/events\"},\"listEventsForRepo\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/events\"},\"listEventsForTimeline\":{\"headers\":{\"accept\":\"application/vnd.github.mockingbird-preview+json\"},\"method\":\"GET\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/timeline\"},\"listForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"filter\":{\"enum\":[\"assigned\",\"created\",\"mentioned\",\"subscribed\",\"all\"],\"type\":\"string\"},\"labels\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"comments\"],\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/user/issues\"},\"listForOrg\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"filter\":{\"enum\":[\"assigned\",\"created\",\"mentioned\",\"subscribed\",\"all\"],\"type\":\"string\"},\"labels\":{\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"comments\"],\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/orgs/:org/issues\"},\"listForRepo\":{\"method\":\"GET\",\"params\":{\"assignee\":{\"type\":\"string\"},\"creator\":{\"type\":\"string\"},\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"labels\":{\"type\":\"string\"},\"mentioned\":{\"type\":\"string\"},\"milestone\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"since\":{\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"comments\"],\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues\"},\"listLabelsForMilestone\":{\"method\":\"GET\",\"params\":{\"milestone_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"milestone_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/milestones/:milestone_number/labels\"},\"listLabelsForRepo\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/labels\"},\"listLabelsOnIssue\":{\"method\":\"GET\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/labels\"},\"listMilestonesForRepo\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"due_on\",\"completeness\"],\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/milestones\"},\"lock\":{\"method\":\"PUT\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"lock_reason\":{\"enum\":[\"off-topic\",\"too heated\",\"resolved\",\"spam\"],\"type\":\"string\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/lock\"},\"removeAssignees\":{\"method\":\"DELETE\",\"params\":{\"assignees\":{\"type\":\"string[]\"},\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/assignees\"},\"removeLabel\":{\"method\":\"DELETE\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"name\":{\"required\":true,\"type\":\"string\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/labels/:name\"},\"removeLabels\":{\"method\":\"DELETE\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/labels\"},\"replaceLabels\":{\"method\":\"PUT\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"labels\":{\"type\":\"string[]\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/labels\"},\"unlock\":{\"method\":\"DELETE\",\"params\":{\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/lock\"},\"update\":{\"method\":\"PATCH\",\"params\":{\"assignee\":{\"type\":\"string\"},\"assignees\":{\"type\":\"string[]\"},\"body\":{\"type\":\"string\"},\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"labels\":{\"type\":\"string[]\"},\"milestone\":{\"allowNull\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\"],\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number\"},\"updateComment\":{\"method\":\"PATCH\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/comments/:comment_id\"},\"updateLabel\":{\"method\":\"PATCH\",\"params\":{\"color\":{\"type\":\"string\"},\"current_name\":{\"required\":true,\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/labels/:current_name\"},\"updateMilestone\":{\"method\":\"PATCH\",\"params\":{\"description\":{\"type\":\"string\"},\"due_on\":{\"type\":\"string\"},\"milestone_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"milestone_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\"],\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/milestones/:milestone_number\"}},\"licenses\":{\"get\":{\"method\":\"GET\",\"params\":{\"license\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/licenses/:license\"},\"getForRepo\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/license\"},\"list\":{\"deprecated\":\"octokit.licenses.list() has been renamed to octokit.licenses.listCommonlyUsed() (2019-03-05)\",\"method\":\"GET\",\"params\":{},\"url\":\"/licenses\"},\"listCommonlyUsed\":{\"method\":\"GET\",\"params\":{},\"url\":\"/licenses\"}},\"markdown\":{\"render\":{\"method\":\"POST\",\"params\":{\"context\":{\"type\":\"string\"},\"mode\":{\"enum\":[\"markdown\",\"gfm\"],\"type\":\"string\"},\"text\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/markdown\"},\"renderRaw\":{\"headers\":{\"content-type\":\"text/plain; charset=utf-8\"},\"method\":\"POST\",\"params\":{\"data\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string\"}},\"url\":\"/markdown/raw\"}},\"meta\":{\"get\":{\"method\":\"GET\",\"params\":{},\"url\":\"/meta\"}},\"migrations\":{\"cancelImport\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import\"},\"deleteArchiveForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"DELETE\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/migrations/:migration_id/archive\"},\"deleteArchiveForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"DELETE\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/migrations/:migration_id/archive\"},\"getArchiveForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"GET\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/migrations/:migration_id/archive\"},\"getArchiveForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"GET\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/migrations/:migration_id/archive\"},\"getCommitAuthors\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"since\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import/authors\"},\"getImportProgress\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import\"},\"getLargeFiles\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import/large_files\"},\"getStatusForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"GET\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/migrations/:migration_id\"},\"getStatusForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"GET\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/migrations/:migration_id\"},\"listForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/migrations\"},\"listForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/migrations\"},\"mapCommitAuthor\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"PATCH\",\"params\":{\"author_id\":{\"required\":true,\"type\":\"integer\"},\"email\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import/authors/:author_id\"},\"setLfsPreference\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"PATCH\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"use_lfs\":{\"enum\":[\"opt_in\",\"opt_out\"],\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import/lfs\"},\"startForAuthenticatedUser\":{\"method\":\"POST\",\"params\":{\"exclude_attachments\":{\"type\":\"boolean\"},\"lock_repositories\":{\"type\":\"boolean\"},\"repositories\":{\"required\":true,\"type\":\"string[]\"}},\"url\":\"/user/migrations\"},\"startForOrg\":{\"method\":\"POST\",\"params\":{\"exclude_attachments\":{\"type\":\"boolean\"},\"lock_repositories\":{\"type\":\"boolean\"},\"org\":{\"required\":true,\"type\":\"string\"},\"repositories\":{\"required\":true,\"type\":\"string[]\"}},\"url\":\"/orgs/:org/migrations\"},\"startImport\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"PUT\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tfvc_project\":{\"type\":\"string\"},\"vcs\":{\"enum\":[\"subversion\",\"git\",\"mercurial\",\"tfvc\"],\"type\":\"string\"},\"vcs_password\":{\"type\":\"string\"},\"vcs_url\":{\"required\":true,\"type\":\"string\"},\"vcs_username\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import\"},\"unlockRepoForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"DELETE\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"},\"repo_name\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/migrations/:migration_id/repos/:repo_name/lock\"},\"unlockRepoForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.wyandotte-preview+json\"},\"method\":\"DELETE\",\"params\":{\"migration_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"},\"repo_name\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/migrations/:migration_id/repos/:repo_name/lock\"},\"updateImport\":{\"headers\":{\"accept\":\"application/vnd.github.barred-rock-preview+json\"},\"method\":\"PATCH\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"vcs_password\":{\"type\":\"string\"},\"vcs_username\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/import\"}},\"oauthAuthorizations\":{\"checkAuthorization\":{\"method\":\"GET\",\"params\":{\"access_token\":{\"required\":true,\"type\":\"string\"},\"client_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/applications/:client_id/tokens/:access_token\"},\"createAuthorization\":{\"method\":\"POST\",\"params\":{\"client_id\":{\"type\":\"string\"},\"client_secret\":{\"type\":\"string\"},\"fingerprint\":{\"type\":\"string\"},\"note\":{\"required\":true,\"type\":\"string\"},\"note_url\":{\"type\":\"string\"},\"scopes\":{\"type\":\"string[]\"}},\"url\":\"/authorizations\"},\"deleteAuthorization\":{\"method\":\"DELETE\",\"params\":{\"authorization_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/authorizations/:authorization_id\"},\"deleteGrant\":{\"method\":\"DELETE\",\"params\":{\"grant_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/applications/grants/:grant_id\"},\"getAuthorization\":{\"method\":\"GET\",\"params\":{\"authorization_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/authorizations/:authorization_id\"},\"getGrant\":{\"method\":\"GET\",\"params\":{\"grant_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/applications/grants/:grant_id\"},\"getOrCreateAuthorizationForApp\":{\"method\":\"PUT\",\"params\":{\"client_id\":{\"required\":true,\"type\":\"string\"},\"client_secret\":{\"required\":true,\"type\":\"string\"},\"fingerprint\":{\"type\":\"string\"},\"note\":{\"type\":\"string\"},\"note_url\":{\"type\":\"string\"},\"scopes\":{\"type\":\"string[]\"}},\"url\":\"/authorizations/clients/:client_id\"},\"getOrCreateAuthorizationForAppAndFingerprint\":{\"method\":\"PUT\",\"params\":{\"client_id\":{\"required\":true,\"type\":\"string\"},\"client_secret\":{\"required\":true,\"type\":\"string\"},\"fingerprint\":{\"required\":true,\"type\":\"string\"},\"note\":{\"type\":\"string\"},\"note_url\":{\"type\":\"string\"},\"scopes\":{\"type\":\"string[]\"}},\"url\":\"/authorizations/clients/:client_id/:fingerprint\"},\"getOrCreateAuthorizationForAppFingerprint\":{\"deprecated\":\"octokit.oauthAuthorizations.getOrCreateAuthorizationForAppFingerprint() has been renamed to octokit.oauthAuthorizations.getOrCreateAuthorizationForAppAndFingerprint() (2018-12-27)\",\"method\":\"PUT\",\"params\":{\"client_id\":{\"required\":true,\"type\":\"string\"},\"client_secret\":{\"required\":true,\"type\":\"string\"},\"fingerprint\":{\"required\":true,\"type\":\"string\"},\"note\":{\"type\":\"string\"},\"note_url\":{\"type\":\"string\"},\"scopes\":{\"type\":\"string[]\"}},\"url\":\"/authorizations/clients/:client_id/:fingerprint\"},\"listAuthorizations\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/authorizations\"},\"listGrants\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/applications/grants\"},\"resetAuthorization\":{\"method\":\"POST\",\"params\":{\"access_token\":{\"required\":true,\"type\":\"string\"},\"client_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/applications/:client_id/tokens/:access_token\"},\"revokeAuthorizationForApplication\":{\"method\":\"DELETE\",\"params\":{\"access_token\":{\"required\":true,\"type\":\"string\"},\"client_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/applications/:client_id/tokens/:access_token\"},\"revokeGrantForApplication\":{\"method\":\"DELETE\",\"params\":{\"access_token\":{\"required\":true,\"type\":\"string\"},\"client_id\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/applications/:client_id/grants/:access_token\"},\"updateAuthorization\":{\"method\":\"PATCH\",\"params\":{\"add_scopes\":{\"type\":\"string[]\"},\"authorization_id\":{\"required\":true,\"type\":\"integer\"},\"fingerprint\":{\"type\":\"string\"},\"note\":{\"type\":\"string\"},\"note_url\":{\"type\":\"string\"},\"remove_scopes\":{\"type\":\"string[]\"},\"scopes\":{\"type\":\"string[]\"}},\"url\":\"/authorizations/:authorization_id\"}},\"orgs\":{\"addOrUpdateMembership\":{\"method\":\"PUT\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"role\":{\"enum\":[\"admin\",\"member\"],\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/memberships/:username\"},\"blockUser\":{\"method\":\"PUT\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/blocks/:username\"},\"checkBlockedUser\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/blocks/:username\"},\"checkMembership\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/members/:username\"},\"checkPublicMembership\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/public_members/:username\"},\"concealMembership\":{\"method\":\"DELETE\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/public_members/:username\"},\"convertMemberToOutsideCollaborator\":{\"method\":\"PUT\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/outside_collaborators/:username\"},\"createHook\":{\"method\":\"POST\",\"params\":{\"active\":{\"type\":\"boolean\"},\"config\":{\"required\":true,\"type\":\"object\"},\"config.content_type\":{\"type\":\"string\"},\"config.insecure_ssl\":{\"type\":\"string\"},\"config.secret\":{\"type\":\"string\"},\"config.url\":{\"required\":true,\"type\":\"string\"},\"events\":{\"type\":\"string[]\"},\"name\":{\"required\":true,\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/hooks\"},\"createInvitation\":{\"method\":\"POST\",\"params\":{\"email\":{\"type\":\"string\"},\"invitee_id\":{\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"},\"role\":{\"enum\":[\"admin\",\"direct_member\",\"billing_manager\"],\"type\":\"string\"},\"team_ids\":{\"type\":\"integer[]\"}},\"url\":\"/orgs/:org/invitations\"},\"deleteHook\":{\"method\":\"DELETE\",\"params\":{\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/hooks/:hook_id\"},\"get\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org\"},\"getHook\":{\"method\":\"GET\",\"params\":{\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/hooks/:hook_id\"},\"getMembership\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/memberships/:username\"},\"getMembershipForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/memberships/orgs/:org\"},\"list\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"}},\"url\":\"/organizations\"},\"listBlockedUsers\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/blocks\"},\"listForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/orgs\"},\"listForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/orgs\"},\"listHooks\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/hooks\"},\"listInvitationTeams\":{\"method\":\"GET\",\"params\":{\"invitation_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/invitations/:invitation_id/teams\"},\"listMembers\":{\"method\":\"GET\",\"params\":{\"filter\":{\"enum\":[\"2fa_disabled\",\"all\"],\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"role\":{\"enum\":[\"all\",\"admin\",\"member\"],\"type\":\"string\"}},\"url\":\"/orgs/:org/members\"},\"listMemberships\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"state\":{\"enum\":[\"active\",\"pending\"],\"type\":\"string\"}},\"url\":\"/user/memberships/orgs\"},\"listOutsideCollaborators\":{\"method\":\"GET\",\"params\":{\"filter\":{\"enum\":[\"2fa_disabled\",\"all\"],\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/outside_collaborators\"},\"listPendingInvitations\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/invitations\"},\"listPublicMembers\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/public_members\"},\"pingHook\":{\"method\":\"POST\",\"params\":{\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/hooks/:hook_id/pings\"},\"publicizeMembership\":{\"method\":\"PUT\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/public_members/:username\"},\"removeMember\":{\"method\":\"DELETE\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/members/:username\"},\"removeMembership\":{\"method\":\"DELETE\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/memberships/:username\"},\"removeOutsideCollaborator\":{\"method\":\"DELETE\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/outside_collaborators/:username\"},\"unblockUser\":{\"method\":\"DELETE\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/blocks/:username\"},\"update\":{\"method\":\"PATCH\",\"params\":{\"billing_email\":{\"type\":\"string\"},\"company\":{\"type\":\"string\"},\"default_repository_permission\":{\"enum\":[\"read\",\"write\",\"admin\",\"none\"],\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"has_organization_projects\":{\"type\":\"boolean\"},\"has_repository_projects\":{\"type\":\"boolean\"},\"location\":{\"type\":\"string\"},\"members_allowed_repository_creation_type\":{\"enum\":[\"all\",\"private\",\"none\"],\"type\":\"string\"},\"members_can_create_repositories\":{\"type\":\"boolean\"},\"name\":{\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org\"},\"updateHook\":{\"method\":\"PATCH\",\"params\":{\"active\":{\"type\":\"boolean\"},\"config\":{\"type\":\"object\"},\"config.content_type\":{\"type\":\"string\"},\"config.insecure_ssl\":{\"type\":\"string\"},\"config.secret\":{\"type\":\"string\"},\"config.url\":{\"required\":true,\"type\":\"string\"},\"events\":{\"type\":\"string[]\"},\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/hooks/:hook_id\"},\"updateMembership\":{\"method\":\"PATCH\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"active\"],\"required\":true,\"type\":\"string\"}},\"url\":\"/user/memberships/orgs/:org\"}},\"projects\":{\"addCollaborator\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"PUT\",\"params\":{\"permission\":{\"enum\":[\"read\",\"write\",\"admin\"],\"type\":\"string\"},\"project_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/projects/:project_id/collaborators/:username\"},\"createCard\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"POST\",\"params\":{\"column_id\":{\"required\":true,\"type\":\"integer\"},\"content_id\":{\"type\":\"integer\"},\"content_type\":{\"type\":\"string\"},\"note\":{\"type\":\"string\"}},\"url\":\"/projects/columns/:column_id/cards\"},\"createColumn\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"POST\",\"params\":{\"name\":{\"required\":true,\"type\":\"string\"},\"project_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/:project_id/columns\"},\"createForAuthenticatedUser\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"POST\",\"params\":{\"body\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/projects\"},\"createForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"POST\",\"params\":{\"body\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/projects\"},\"createForRepo\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"POST\",\"params\":{\"body\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/projects\"},\"delete\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"DELETE\",\"params\":{\"project_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/:project_id\"},\"deleteCard\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"DELETE\",\"params\":{\"card_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/columns/cards/:card_id\"},\"deleteColumn\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"DELETE\",\"params\":{\"column_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/columns/:column_id\"},\"get\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"project_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/:project_id\"},\"getCard\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"card_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/columns/cards/:card_id\"},\"getColumn\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"column_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/columns/:column_id\"},\"listCards\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"archived_state\":{\"enum\":[\"all\",\"archived\",\"not_archived\"],\"type\":\"string\"},\"column_id\":{\"required\":true,\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/projects/columns/:column_id/cards\"},\"listCollaborators\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"affiliation\":{\"enum\":[\"outside\",\"direct\",\"all\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"project_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/:project_id/collaborators\"},\"listColumns\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"project_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/projects/:project_id/columns\"},\"listForOrg\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/orgs/:org/projects\"},\"listForRepo\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/projects\"},\"listForUser\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/projects\"},\"moveCard\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"POST\",\"params\":{\"card_id\":{\"required\":true,\"type\":\"integer\"},\"column_id\":{\"type\":\"integer\"},\"position\":{\"required\":true,\"type\":\"string\",\"validation\":\"^(top|bottom|after:\\\\d+)$\"}},\"url\":\"/projects/columns/cards/:card_id/moves\"},\"moveColumn\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"POST\",\"params\":{\"column_id\":{\"required\":true,\"type\":\"integer\"},\"position\":{\"required\":true,\"type\":\"string\",\"validation\":\"^(first|last|after:\\\\d+)$\"}},\"url\":\"/projects/columns/:column_id/moves\"},\"removeCollaborator\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"DELETE\",\"params\":{\"project_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/projects/:project_id/collaborators/:username\"},\"reviewUserPermissionLevel\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"project_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/projects/:project_id/collaborators/:username/permission\"},\"update\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"PATCH\",\"params\":{\"body\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"organization_permission\":{\"type\":\"string\"},\"private\":{\"type\":\"boolean\"},\"project_id\":{\"required\":true,\"type\":\"integer\"},\"state\":{\"enum\":[\"open\",\"closed\"],\"type\":\"string\"}},\"url\":\"/projects/:project_id\"},\"updateCard\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"PATCH\",\"params\":{\"archived\":{\"type\":\"boolean\"},\"card_id\":{\"required\":true,\"type\":\"integer\"},\"note\":{\"type\":\"string\"}},\"url\":\"/projects/columns/cards/:card_id\"},\"updateColumn\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"PATCH\",\"params\":{\"column_id\":{\"required\":true,\"type\":\"integer\"},\"name\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/projects/columns/:column_id\"}},\"pulls\":{\"checkIfMerged\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/merge\"},\"create\":{\"method\":\"POST\",\"params\":{\"base\":{\"required\":true,\"type\":\"string\"},\"body\":{\"type\":\"string\"},\"draft\":{\"type\":\"boolean\"},\"head\":{\"required\":true,\"type\":\"string\"},\"maintainer_can_modify\":{\"type\":\"boolean\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"title\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls\"},\"createComment\":{\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"commit_id\":{\"required\":true,\"type\":\"string\"},\"in_reply_to\":{\"deprecated\":true,\"description\":\"The comment ID to reply to. **Note**: This must be the ID of a top-level comment, not a reply to that comment. Replies to replies are not supported.\",\"type\":\"integer\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"required\":true,\"type\":\"string\"},\"position\":{\"required\":true,\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/comments\"},\"createCommentReply\":{\"deprecated\":\"octokit.pulls.createCommentReply() has been renamed to octokit.pulls.createComment() (2019-09-09)\",\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"commit_id\":{\"required\":true,\"type\":\"string\"},\"in_reply_to\":{\"deprecated\":true,\"description\":\"The comment ID to reply to. **Note**: This must be the ID of a top-level comment, not a reply to that comment. Replies to replies are not supported.\",\"type\":\"integer\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"required\":true,\"type\":\"string\"},\"position\":{\"required\":true,\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/comments\"},\"createFromIssue\":{\"deprecated\":\"octokit.pulls.createFromIssue() has been deprecated. Use octokit.pulls.create() instead.\",\"method\":\"POST\",\"params\":{\"base\":{\"required\":true,\"type\":\"string\"},\"draft\":{\"type\":\"boolean\"},\"head\":{\"required\":true,\"type\":\"string\"},\"issue\":{\"required\":true,\"type\":\"integer\"},\"maintainer_can_modify\":{\"type\":\"boolean\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls\"},\"createReview\":{\"method\":\"POST\",\"params\":{\"body\":{\"type\":\"string\"},\"comments\":{\"type\":\"object[]\"},\"comments[].body\":{\"required\":true,\"type\":\"string\"},\"comments[].path\":{\"required\":true,\"type\":\"string\"},\"comments[].position\":{\"required\":true,\"type\":\"integer\"},\"commit_id\":{\"type\":\"string\"},\"event\":{\"enum\":[\"APPROVE\",\"REQUEST_CHANGES\",\"COMMENT\"],\"type\":\"string\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews\"},\"createReviewCommentReply\":{\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/comments/:comment_id/replies\"},\"createReviewRequest\":{\"method\":\"POST\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"reviewers\":{\"type\":\"string[]\"},\"team_reviewers\":{\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/requested_reviewers\"},\"deleteComment\":{\"method\":\"DELETE\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/comments/:comment_id\"},\"deletePendingReview\":{\"method\":\"DELETE\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"review_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews/:review_id\"},\"deleteReviewRequest\":{\"method\":\"DELETE\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"reviewers\":{\"type\":\"string[]\"},\"team_reviewers\":{\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/requested_reviewers\"},\"dismissReview\":{\"method\":\"PUT\",\"params\":{\"message\":{\"required\":true,\"type\":\"string\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"review_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews/:review_id/dismissals\"},\"get\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number\"},\"getComment\":{\"method\":\"GET\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/comments/:comment_id\"},\"getCommentsForReview\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"review_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews/:review_id/comments\"},\"getReview\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"review_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews/:review_id\"},\"list\":{\"method\":\"GET\",\"params\":{\"base\":{\"type\":\"string\"},\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"head\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"popularity\",\"long-running\"],\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\",\"all\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls\"},\"listComments\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"since\":{\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/comments\"},\"listCommentsForRepo\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"since\":{\"type\":\"string\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/comments\"},\"listCommits\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/commits\"},\"listFiles\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/files\"},\"listReviewRequests\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/requested_reviewers\"},\"listReviews\":{\"method\":\"GET\",\"params\":{\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews\"},\"merge\":{\"method\":\"PUT\",\"params\":{\"commit_message\":{\"type\":\"string\"},\"commit_title\":{\"type\":\"string\"},\"merge_method\":{\"enum\":[\"merge\",\"squash\",\"rebase\"],\"type\":\"string\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/merge\"},\"submitReview\":{\"method\":\"POST\",\"params\":{\"body\":{\"type\":\"string\"},\"event\":{\"enum\":[\"APPROVE\",\"REQUEST_CHANGES\",\"COMMENT\"],\"required\":true,\"type\":\"string\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"review_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews/:review_id/events\"},\"update\":{\"method\":\"PATCH\",\"params\":{\"base\":{\"type\":\"string\"},\"body\":{\"type\":\"string\"},\"maintainer_can_modify\":{\"type\":\"boolean\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"open\",\"closed\"],\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number\"},\"updateBranch\":{\"headers\":{\"accept\":\"application/vnd.github.lydian-preview+json\"},\"method\":\"PUT\",\"params\":{\"expected_head_sha\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/update-branch\"},\"updateComment\":{\"method\":\"PATCH\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/comments/:comment_id\"},\"updateReview\":{\"method\":\"PUT\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"number\":{\"alias\":\"pull_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"pull_number\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"review_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/pulls/:pull_number/reviews/:review_id\"}},\"rateLimit\":{\"get\":{\"method\":\"GET\",\"params\":{},\"url\":\"/rate_limit\"}},\"reactions\":{\"createForCommitComment\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"POST\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/comments/:comment_id/reactions\"},\"createForIssue\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"POST\",\"params\":{\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"required\":true,\"type\":\"string\"},\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/reactions\"},\"createForIssueComment\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"POST\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/comments/:comment_id/reactions\"},\"createForPullRequestReviewComment\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"POST\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/comments/:comment_id/reactions\"},\"createForTeamDiscussion\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json,application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"POST\",\"params\":{\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"required\":true,\"type\":\"string\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/reactions\"},\"createForTeamDiscussionComment\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json,application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"POST\",\"params\":{\"comment_number\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"required\":true,\"type\":\"string\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/comments/:comment_number/reactions\"},\"delete\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json,application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"DELETE\",\"params\":{\"reaction_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/reactions/:reaction_id\"},\"listForCommitComment\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"GET\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/comments/:comment_id/reactions\"},\"listForIssue\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"GET\",\"params\":{\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"type\":\"string\"},\"issue_number\":{\"required\":true,\"type\":\"integer\"},\"number\":{\"alias\":\"issue_number\",\"deprecated\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/:issue_number/reactions\"},\"listForIssueComment\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"GET\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/issues/comments/:comment_id/reactions\"},\"listForPullRequestReviewComment\":{\"headers\":{\"accept\":\"application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"GET\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pulls/comments/:comment_id/reactions\"},\"listForTeamDiscussion\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json,application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"GET\",\"params\":{\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"type\":\"string\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/reactions\"},\"listForTeamDiscussionComment\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json,application/vnd.github.squirrel-girl-preview+json\"},\"method\":\"GET\",\"params\":{\"comment_number\":{\"required\":true,\"type\":\"integer\"},\"content\":{\"enum\":[\"+1\",\"-1\",\"laugh\",\"confused\",\"heart\",\"hooray\",\"rocket\",\"eyes\"],\"type\":\"string\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/comments/:comment_number/reactions\"}},\"repos\":{\"acceptInvitation\":{\"method\":\"PATCH\",\"params\":{\"invitation_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/repository_invitations/:invitation_id\"},\"addCollaborator\":{\"method\":\"PUT\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"permission\":{\"enum\":[\"pull\",\"push\",\"admin\"],\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/collaborators/:username\"},\"addDeployKey\":{\"method\":\"POST\",\"params\":{\"key\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"read_only\":{\"type\":\"boolean\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/keys\"},\"addProtectedBranchAdminEnforcement\":{\"method\":\"POST\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/enforce_admins\"},\"addProtectedBranchAppRestrictions\":{\"method\":\"POST\",\"params\":{\"apps\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"},\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/apps\"},\"addProtectedBranchRequiredSignatures\":{\"headers\":{\"accept\":\"application/vnd.github.zzzax-preview+json\"},\"method\":\"POST\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_signatures\"},\"addProtectedBranchRequiredStatusChecksContexts\":{\"method\":\"POST\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"contexts\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_status_checks/contexts\"},\"addProtectedBranchTeamRestrictions\":{\"method\":\"POST\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"teams\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/teams\"},\"addProtectedBranchUserRestrictions\":{\"method\":\"POST\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"users\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/users\"},\"checkCollaborator\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/collaborators/:username\"},\"checkVulnerabilityAlerts\":{\"headers\":{\"accept\":\"application/vnd.github.dorian-preview+json\"},\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/vulnerability-alerts\"},\"compareCommits\":{\"method\":\"GET\",\"params\":{\"base\":{\"required\":true,\"type\":\"string\"},\"head\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/compare/:base...:head\"},\"createCommitComment\":{\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"commit_sha\":{\"required\":true,\"type\":\"string\"},\"line\":{\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"position\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"alias\":\"commit_sha\",\"deprecated\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:commit_sha/comments\"},\"createDeployment\":{\"method\":\"POST\",\"params\":{\"auto_merge\":{\"type\":\"boolean\"},\"description\":{\"type\":\"string\"},\"environment\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"payload\":{\"type\":\"string\"},\"production_environment\":{\"type\":\"boolean\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"required_contexts\":{\"type\":\"string[]\"},\"task\":{\"type\":\"string\"},\"transient_environment\":{\"type\":\"boolean\"}},\"url\":\"/repos/:owner/:repo/deployments\"},\"createDeploymentStatus\":{\"method\":\"POST\",\"params\":{\"auto_inactive\":{\"type\":\"boolean\"},\"deployment_id\":{\"required\":true,\"type\":\"integer\"},\"description\":{\"type\":\"string\"},\"environment\":{\"enum\":[\"production\",\"staging\",\"qa\"],\"type\":\"string\"},\"environment_url\":{\"type\":\"string\"},\"log_url\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"error\",\"failure\",\"inactive\",\"in_progress\",\"queued\",\"pending\",\"success\"],\"required\":true,\"type\":\"string\"},\"target_url\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/deployments/:deployment_id/statuses\"},\"createDispatchEvent\":{\"headers\":{\"accept\":\"application/vnd.github.everest-preview+json\"},\"method\":\"POST\",\"params\":{\"event_type\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/dispatches\"},\"createFile\":{\"deprecated\":\"octokit.repos.createFile() has been renamed to octokit.repos.createOrUpdateFile() (2019-06-07)\",\"method\":\"PUT\",\"params\":{\"author\":{\"type\":\"object\"},\"author.email\":{\"required\":true,\"type\":\"string\"},\"author.name\":{\"required\":true,\"type\":\"string\"},\"branch\":{\"type\":\"string\"},\"committer\":{\"type\":\"object\"},\"committer.email\":{\"required\":true,\"type\":\"string\"},\"committer.name\":{\"required\":true,\"type\":\"string\"},\"content\":{\"required\":true,\"type\":\"string\"},\"message\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/contents/:path\"},\"createForAuthenticatedUser\":{\"method\":\"POST\",\"params\":{\"allow_merge_commit\":{\"type\":\"boolean\"},\"allow_rebase_merge\":{\"type\":\"boolean\"},\"allow_squash_merge\":{\"type\":\"boolean\"},\"auto_init\":{\"type\":\"boolean\"},\"description\":{\"type\":\"string\"},\"gitignore_template\":{\"type\":\"string\"},\"has_issues\":{\"type\":\"boolean\"},\"has_projects\":{\"type\":\"boolean\"},\"has_wiki\":{\"type\":\"boolean\"},\"homepage\":{\"type\":\"string\"},\"is_template\":{\"type\":\"boolean\"},\"license_template\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"private\":{\"type\":\"boolean\"},\"team_id\":{\"type\":\"integer\"}},\"url\":\"/user/repos\"},\"createFork\":{\"method\":\"POST\",\"params\":{\"organization\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/forks\"},\"createHook\":{\"method\":\"POST\",\"params\":{\"active\":{\"type\":\"boolean\"},\"config\":{\"required\":true,\"type\":\"object\"},\"config.content_type\":{\"type\":\"string\"},\"config.insecure_ssl\":{\"type\":\"string\"},\"config.secret\":{\"type\":\"string\"},\"config.url\":{\"required\":true,\"type\":\"string\"},\"events\":{\"type\":\"string[]\"},\"name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/hooks\"},\"createInOrg\":{\"method\":\"POST\",\"params\":{\"allow_merge_commit\":{\"type\":\"boolean\"},\"allow_rebase_merge\":{\"type\":\"boolean\"},\"allow_squash_merge\":{\"type\":\"boolean\"},\"auto_init\":{\"type\":\"boolean\"},\"description\":{\"type\":\"string\"},\"gitignore_template\":{\"type\":\"string\"},\"has_issues\":{\"type\":\"boolean\"},\"has_projects\":{\"type\":\"boolean\"},\"has_wiki\":{\"type\":\"boolean\"},\"homepage\":{\"type\":\"string\"},\"is_template\":{\"type\":\"boolean\"},\"license_template\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"},\"private\":{\"type\":\"boolean\"},\"team_id\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/repos\"},\"createOrUpdateFile\":{\"method\":\"PUT\",\"params\":{\"author\":{\"type\":\"object\"},\"author.email\":{\"required\":true,\"type\":\"string\"},\"author.name\":{\"required\":true,\"type\":\"string\"},\"branch\":{\"type\":\"string\"},\"committer\":{\"type\":\"object\"},\"committer.email\":{\"required\":true,\"type\":\"string\"},\"committer.name\":{\"required\":true,\"type\":\"string\"},\"content\":{\"required\":true,\"type\":\"string\"},\"message\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/contents/:path\"},\"createRelease\":{\"method\":\"POST\",\"params\":{\"body\":{\"type\":\"string\"},\"draft\":{\"type\":\"boolean\"},\"name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"prerelease\":{\"type\":\"boolean\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tag_name\":{\"required\":true,\"type\":\"string\"},\"target_commitish\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases\"},\"createStatus\":{\"method\":\"POST\",\"params\":{\"context\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"required\":true,\"type\":\"string\"},\"state\":{\"enum\":[\"error\",\"failure\",\"pending\",\"success\"],\"required\":true,\"type\":\"string\"},\"target_url\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/statuses/:sha\"},\"createUsingTemplate\":{\"headers\":{\"accept\":\"application/vnd.github.baptiste-preview+json\"},\"method\":\"POST\",\"params\":{\"description\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"type\":\"string\"},\"private\":{\"type\":\"boolean\"},\"template_owner\":{\"required\":true,\"type\":\"string\"},\"template_repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:template_owner/:template_repo/generate\"},\"declineInvitation\":{\"method\":\"DELETE\",\"params\":{\"invitation_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/repository_invitations/:invitation_id\"},\"delete\":{\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo\"},\"deleteCommitComment\":{\"method\":\"DELETE\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/comments/:comment_id\"},\"deleteDownload\":{\"method\":\"DELETE\",\"params\":{\"download_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/downloads/:download_id\"},\"deleteFile\":{\"method\":\"DELETE\",\"params\":{\"author\":{\"type\":\"object\"},\"author.email\":{\"type\":\"string\"},\"author.name\":{\"type\":\"string\"},\"branch\":{\"type\":\"string\"},\"committer\":{\"type\":\"object\"},\"committer.email\":{\"type\":\"string\"},\"committer.name\":{\"type\":\"string\"},\"message\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/contents/:path\"},\"deleteHook\":{\"method\":\"DELETE\",\"params\":{\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/hooks/:hook_id\"},\"deleteInvitation\":{\"method\":\"DELETE\",\"params\":{\"invitation_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/invitations/:invitation_id\"},\"deleteRelease\":{\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"release_id\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/:release_id\"},\"deleteReleaseAsset\":{\"method\":\"DELETE\",\"params\":{\"asset_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/assets/:asset_id\"},\"disableAutomatedSecurityFixes\":{\"headers\":{\"accept\":\"application/vnd.github.london-preview+json\"},\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/automated-security-fixes\"},\"disablePagesSite\":{\"headers\":{\"accept\":\"application/vnd.github.switcheroo-preview+json\"},\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages\"},\"disableVulnerabilityAlerts\":{\"headers\":{\"accept\":\"application/vnd.github.dorian-preview+json\"},\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/vulnerability-alerts\"},\"enableAutomatedSecurityFixes\":{\"headers\":{\"accept\":\"application/vnd.github.london-preview+json\"},\"method\":\"PUT\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/automated-security-fixes\"},\"enablePagesSite\":{\"headers\":{\"accept\":\"application/vnd.github.switcheroo-preview+json\"},\"method\":\"POST\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"source\":{\"type\":\"object\"},\"source.branch\":{\"enum\":[\"master\",\"gh-pages\"],\"type\":\"string\"},\"source.path\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages\"},\"enableVulnerabilityAlerts\":{\"headers\":{\"accept\":\"application/vnd.github.dorian-preview+json\"},\"method\":\"PUT\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/vulnerability-alerts\"},\"get\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo\"},\"getAppsWithAccessToProtectedBranch\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/apps\"},\"getArchiveLink\":{\"method\":\"GET\",\"params\":{\"archive_format\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/:archive_format/:ref\"},\"getBranch\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch\"},\"getBranchProtection\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection\"},\"getClones\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"per\":{\"enum\":[\"day\",\"week\"],\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/traffic/clones\"},\"getCodeFrequencyStats\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/stats/code_frequency\"},\"getCollaboratorPermissionLevel\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/collaborators/:username/permission\"},\"getCombinedStatusForRef\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:ref/status\"},\"getCommit\":{\"method\":\"GET\",\"params\":{\"commit_sha\":{\"alias\":\"ref\",\"deprecated\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"alias\":\"ref\",\"deprecated\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:ref\"},\"getCommitActivityStats\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/stats/commit_activity\"},\"getCommitComment\":{\"method\":\"GET\",\"params\":{\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/comments/:comment_id\"},\"getCommitRefSha\":{\"deprecated\":\"\\\"Get the SHA-1 of a commit reference\\\" will be removed. Use \\\"Get a single commit\\\" instead with media type format set to \\\"sha\\\" instead.\",\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:ref\"},\"getContents\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/contents/:path\"},\"getContributorsStats\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/stats/contributors\"},\"getDeployKey\":{\"method\":\"GET\",\"params\":{\"key_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/keys/:key_id\"},\"getDeployment\":{\"method\":\"GET\",\"params\":{\"deployment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/deployments/:deployment_id\"},\"getDeploymentStatus\":{\"method\":\"GET\",\"params\":{\"deployment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"status_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/deployments/:deployment_id/statuses/:status_id\"},\"getDownload\":{\"method\":\"GET\",\"params\":{\"download_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/downloads/:download_id\"},\"getHook\":{\"method\":\"GET\",\"params\":{\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/hooks/:hook_id\"},\"getLatestPagesBuild\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages/builds/latest\"},\"getLatestRelease\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/latest\"},\"getPages\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages\"},\"getPagesBuild\":{\"method\":\"GET\",\"params\":{\"build_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages/builds/:build_id\"},\"getParticipationStats\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/stats/participation\"},\"getProtectedBranchAdminEnforcement\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/enforce_admins\"},\"getProtectedBranchPullRequestReviewEnforcement\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_pull_request_reviews\"},\"getProtectedBranchRequiredSignatures\":{\"headers\":{\"accept\":\"application/vnd.github.zzzax-preview+json\"},\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_signatures\"},\"getProtectedBranchRequiredStatusChecks\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_status_checks\"},\"getProtectedBranchRestrictions\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions\"},\"getPunchCardStats\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/stats/punch_card\"},\"getReadme\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"ref\":{\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/readme\"},\"getRelease\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"release_id\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/:release_id\"},\"getReleaseAsset\":{\"method\":\"GET\",\"params\":{\"asset_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/assets/:asset_id\"},\"getReleaseByTag\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tag\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/tags/:tag\"},\"getTeamsWithAccessToProtectedBranch\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/teams\"},\"getTopPaths\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/traffic/popular/paths\"},\"getTopReferrers\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/traffic/popular/referrers\"},\"getUsersWithAccessToProtectedBranch\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/users\"},\"getViews\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"per\":{\"enum\":[\"day\",\"week\"],\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/traffic/views\"},\"list\":{\"method\":\"GET\",\"params\":{\"affiliation\":{\"type\":\"string\"},\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"pushed\",\"full_name\"],\"type\":\"string\"},\"type\":{\"enum\":[\"all\",\"owner\",\"public\",\"private\",\"member\"],\"type\":\"string\"},\"visibility\":{\"enum\":[\"all\",\"public\",\"private\"],\"type\":\"string\"}},\"url\":\"/user/repos\"},\"listAppsWithAccessToProtectedBranch\":{\"deprecated\":\"octokit.repos.listAppsWithAccessToProtectedBranch() has been renamed to octokit.repos.getAppsWithAccessToProtectedBranch() (2019-09-13)\",\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/apps\"},\"listAssetsForRelease\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"release_id\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/:release_id/assets\"},\"listBranches\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"protected\":{\"type\":\"boolean\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches\"},\"listBranchesForHeadCommit\":{\"headers\":{\"accept\":\"application/vnd.github.groot-preview+json\"},\"method\":\"GET\",\"params\":{\"commit_sha\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:commit_sha/branches-where-head\"},\"listCollaborators\":{\"method\":\"GET\",\"params\":{\"affiliation\":{\"enum\":[\"outside\",\"direct\",\"all\"],\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/collaborators\"},\"listCommentsForCommit\":{\"method\":\"GET\",\"params\":{\"commit_sha\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"ref\":{\"alias\":\"commit_sha\",\"deprecated\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:commit_sha/comments\"},\"listCommitComments\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/comments\"},\"listCommits\":{\"method\":\"GET\",\"params\":{\"author\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"path\":{\"type\":\"string\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"type\":\"string\"},\"since\":{\"type\":\"string\"},\"until\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits\"},\"listContributors\":{\"method\":\"GET\",\"params\":{\"anon\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/contributors\"},\"listDeployKeys\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/keys\"},\"listDeploymentStatuses\":{\"method\":\"GET\",\"params\":{\"deployment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/deployments/:deployment_id/statuses\"},\"listDeployments\":{\"method\":\"GET\",\"params\":{\"environment\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"ref\":{\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"type\":\"string\"},\"task\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/deployments\"},\"listDownloads\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/downloads\"},\"listForOrg\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"pushed\",\"full_name\"],\"type\":\"string\"},\"type\":{\"enum\":[\"all\",\"public\",\"private\",\"forks\",\"sources\",\"member\"],\"type\":\"string\"}},\"url\":\"/orgs/:org/repos\"},\"listForUser\":{\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\",\"pushed\",\"full_name\"],\"type\":\"string\"},\"type\":{\"enum\":[\"all\",\"owner\",\"member\"],\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/repos\"},\"listForks\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"newest\",\"oldest\",\"stargazers\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/forks\"},\"listHooks\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/hooks\"},\"listInvitations\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/invitations\"},\"listInvitationsForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/repository_invitations\"},\"listLanguages\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/languages\"},\"listPagesBuilds\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages/builds\"},\"listProtectedBranchRequiredStatusChecksContexts\":{\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_status_checks/contexts\"},\"listProtectedBranchTeamRestrictions\":{\"deprecated\":\"octokit.repos.listProtectedBranchTeamRestrictions() has been renamed to octokit.repos.getTeamsWithAccessToProtectedBranch() (2019-09-09)\",\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/teams\"},\"listProtectedBranchUserRestrictions\":{\"deprecated\":\"octokit.repos.listProtectedBranchUserRestrictions() has been renamed to octokit.repos.getUsersWithAccessToProtectedBranch() (2019-09-09)\",\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/users\"},\"listPublic\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"}},\"url\":\"/repositories\"},\"listPullRequestsAssociatedWithCommit\":{\"headers\":{\"accept\":\"application/vnd.github.groot-preview+json\"},\"method\":\"GET\",\"params\":{\"commit_sha\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:commit_sha/pulls\"},\"listReleases\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases\"},\"listStatusesForRef\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"ref\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/commits/:ref/statuses\"},\"listTags\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/tags\"},\"listTeams\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/teams\"},\"listTeamsWithAccessToProtectedBranch\":{\"deprecated\":\"octokit.repos.listTeamsWithAccessToProtectedBranch() has been renamed to octokit.repos.getTeamsWithAccessToProtectedBranch() (2019-09-13)\",\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/teams\"},\"listTopics\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/topics\"},\"listUsersWithAccessToProtectedBranch\":{\"deprecated\":\"octokit.repos.listUsersWithAccessToProtectedBranch() has been renamed to octokit.repos.getUsersWithAccessToProtectedBranch() (2019-09-13)\",\"method\":\"GET\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/users\"},\"merge\":{\"method\":\"POST\",\"params\":{\"base\":{\"required\":true,\"type\":\"string\"},\"commit_message\":{\"type\":\"string\"},\"head\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/merges\"},\"pingHook\":{\"method\":\"POST\",\"params\":{\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/hooks/:hook_id/pings\"},\"removeBranchProtection\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection\"},\"removeCollaborator\":{\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/collaborators/:username\"},\"removeDeployKey\":{\"method\":\"DELETE\",\"params\":{\"key_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/keys/:key_id\"},\"removeProtectedBranchAdminEnforcement\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/enforce_admins\"},\"removeProtectedBranchAppRestrictions\":{\"method\":\"DELETE\",\"params\":{\"apps\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"},\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/apps\"},\"removeProtectedBranchPullRequestReviewEnforcement\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_pull_request_reviews\"},\"removeProtectedBranchRequiredSignatures\":{\"headers\":{\"accept\":\"application/vnd.github.zzzax-preview+json\"},\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_signatures\"},\"removeProtectedBranchRequiredStatusChecks\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_status_checks\"},\"removeProtectedBranchRequiredStatusChecksContexts\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"contexts\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_status_checks/contexts\"},\"removeProtectedBranchRestrictions\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions\"},\"removeProtectedBranchTeamRestrictions\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"teams\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/teams\"},\"removeProtectedBranchUserRestrictions\":{\"method\":\"DELETE\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"users\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/users\"},\"replaceProtectedBranchAppRestrictions\":{\"method\":\"PUT\",\"params\":{\"apps\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"},\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/apps\"},\"replaceProtectedBranchRequiredStatusChecksContexts\":{\"method\":\"PUT\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"contexts\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_status_checks/contexts\"},\"replaceProtectedBranchTeamRestrictions\":{\"method\":\"PUT\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"teams\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/teams\"},\"replaceProtectedBranchUserRestrictions\":{\"method\":\"PUT\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"users\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/restrictions/users\"},\"replaceTopics\":{\"method\":\"PUT\",\"params\":{\"names\":{\"required\":true,\"type\":\"string[]\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/topics\"},\"requestPageBuild\":{\"headers\":{\"accept\":\"application/vnd.github.mister-fantastic-preview+json\"},\"method\":\"POST\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages/builds\"},\"retrieveCommunityProfileMetrics\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/community/profile\"},\"testPushHook\":{\"method\":\"POST\",\"params\":{\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/hooks/:hook_id/tests\"},\"transfer\":{\"headers\":{\"accept\":\"application/vnd.github.nightshade-preview+json\"},\"method\":\"POST\",\"params\":{\"new_owner\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"team_ids\":{\"type\":\"integer[]\"}},\"url\":\"/repos/:owner/:repo/transfer\"},\"update\":{\"method\":\"PATCH\",\"params\":{\"allow_merge_commit\":{\"type\":\"boolean\"},\"allow_rebase_merge\":{\"type\":\"boolean\"},\"allow_squash_merge\":{\"type\":\"boolean\"},\"archived\":{\"type\":\"boolean\"},\"default_branch\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"has_issues\":{\"type\":\"boolean\"},\"has_projects\":{\"type\":\"boolean\"},\"has_wiki\":{\"type\":\"boolean\"},\"homepage\":{\"type\":\"string\"},\"is_template\":{\"type\":\"boolean\"},\"name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"private\":{\"type\":\"boolean\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo\"},\"updateBranchProtection\":{\"method\":\"PUT\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"enforce_admins\":{\"allowNull\":true,\"required\":true,\"type\":\"boolean\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"required_pull_request_reviews\":{\"allowNull\":true,\"required\":true,\"type\":\"object\"},\"required_pull_request_reviews.dismiss_stale_reviews\":{\"type\":\"boolean\"},\"required_pull_request_reviews.dismissal_restrictions\":{\"type\":\"object\"},\"required_pull_request_reviews.dismissal_restrictions.teams\":{\"type\":\"string[]\"},\"required_pull_request_reviews.dismissal_restrictions.users\":{\"type\":\"string[]\"},\"required_pull_request_reviews.require_code_owner_reviews\":{\"type\":\"boolean\"},\"required_pull_request_reviews.required_approving_review_count\":{\"type\":\"integer\"},\"required_status_checks\":{\"allowNull\":true,\"required\":true,\"type\":\"object\"},\"required_status_checks.contexts\":{\"required\":true,\"type\":\"string[]\"},\"required_status_checks.strict\":{\"required\":true,\"type\":\"boolean\"},\"restrictions\":{\"allowNull\":true,\"required\":true,\"type\":\"object\"},\"restrictions.apps\":{\"type\":\"string[]\"},\"restrictions.teams\":{\"required\":true,\"type\":\"string[]\"},\"restrictions.users\":{\"required\":true,\"type\":\"string[]\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection\"},\"updateCommitComment\":{\"method\":\"PATCH\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"comment_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/comments/:comment_id\"},\"updateFile\":{\"deprecated\":\"octokit.repos.updateFile() has been renamed to octokit.repos.createOrUpdateFile() (2019-06-07)\",\"method\":\"PUT\",\"params\":{\"author\":{\"type\":\"object\"},\"author.email\":{\"required\":true,\"type\":\"string\"},\"author.name\":{\"required\":true,\"type\":\"string\"},\"branch\":{\"type\":\"string\"},\"committer\":{\"type\":\"object\"},\"committer.email\":{\"required\":true,\"type\":\"string\"},\"committer.name\":{\"required\":true,\"type\":\"string\"},\"content\":{\"required\":true,\"type\":\"string\"},\"message\":{\"required\":true,\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"path\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"sha\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/contents/:path\"},\"updateHook\":{\"method\":\"PATCH\",\"params\":{\"active\":{\"type\":\"boolean\"},\"add_events\":{\"type\":\"string[]\"},\"config\":{\"type\":\"object\"},\"config.content_type\":{\"type\":\"string\"},\"config.insecure_ssl\":{\"type\":\"string\"},\"config.secret\":{\"type\":\"string\"},\"config.url\":{\"required\":true,\"type\":\"string\"},\"events\":{\"type\":\"string[]\"},\"hook_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"remove_events\":{\"type\":\"string[]\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/hooks/:hook_id\"},\"updateInformationAboutPagesSite\":{\"method\":\"PUT\",\"params\":{\"cname\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"source\":{\"enum\":[\"\\\"gh-pages\\\"\",\"\\\"master\\\"\",\"\\\"master /docs\\\"\"],\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/pages\"},\"updateInvitation\":{\"method\":\"PATCH\",\"params\":{\"invitation_id\":{\"required\":true,\"type\":\"integer\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"permissions\":{\"enum\":[\"read\",\"write\",\"admin\"],\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/invitations/:invitation_id\"},\"updateProtectedBranchPullRequestReviewEnforcement\":{\"method\":\"PATCH\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"dismiss_stale_reviews\":{\"type\":\"boolean\"},\"dismissal_restrictions\":{\"type\":\"object\"},\"dismissal_restrictions.teams\":{\"type\":\"string[]\"},\"dismissal_restrictions.users\":{\"type\":\"string[]\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"require_code_owner_reviews\":{\"type\":\"boolean\"},\"required_approving_review_count\":{\"type\":\"integer\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_pull_request_reviews\"},\"updateProtectedBranchRequiredStatusChecks\":{\"method\":\"PATCH\",\"params\":{\"branch\":{\"required\":true,\"type\":\"string\"},\"contexts\":{\"type\":\"string[]\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"strict\":{\"type\":\"boolean\"}},\"url\":\"/repos/:owner/:repo/branches/:branch/protection/required_status_checks\"},\"updateRelease\":{\"method\":\"PATCH\",\"params\":{\"body\":{\"type\":\"string\"},\"draft\":{\"type\":\"boolean\"},\"name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"prerelease\":{\"type\":\"boolean\"},\"release_id\":{\"required\":true,\"type\":\"integer\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"tag_name\":{\"type\":\"string\"},\"target_commitish\":{\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/:release_id\"},\"updateReleaseAsset\":{\"method\":\"PATCH\",\"params\":{\"asset_id\":{\"required\":true,\"type\":\"integer\"},\"label\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/repos/:owner/:repo/releases/assets/:asset_id\"},\"uploadReleaseAsset\":{\"method\":\"POST\",\"params\":{\"file\":{\"mapTo\":\"data\",\"required\":true,\"type\":\"string | object\"},\"headers\":{\"required\":true,\"type\":\"object\"},\"headers.content-length\":{\"required\":true,\"type\":\"integer\"},\"headers.content-type\":{\"required\":true,\"type\":\"string\"},\"label\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"url\":{\"required\":true,\"type\":\"string\"}},\"url\":\":url\"}},\"search\":{\"code\":{\"method\":\"GET\",\"params\":{\"order\":{\"enum\":[\"desc\",\"asc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"q\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"indexed\"],\"type\":\"string\"}},\"url\":\"/search/code\"},\"commits\":{\"headers\":{\"accept\":\"application/vnd.github.cloak-preview+json\"},\"method\":\"GET\",\"params\":{\"order\":{\"enum\":[\"desc\",\"asc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"q\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"author-date\",\"committer-date\"],\"type\":\"string\"}},\"url\":\"/search/commits\"},\"issues\":{\"deprecated\":\"octokit.search.issues() has been renamed to octokit.search.issuesAndPullRequests() (2018-12-27)\",\"method\":\"GET\",\"params\":{\"order\":{\"enum\":[\"desc\",\"asc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"q\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"comments\",\"reactions\",\"reactions-+1\",\"reactions--1\",\"reactions-smile\",\"reactions-thinking_face\",\"reactions-heart\",\"reactions-tada\",\"interactions\",\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/search/issues\"},\"issuesAndPullRequests\":{\"method\":\"GET\",\"params\":{\"order\":{\"enum\":[\"desc\",\"asc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"q\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"comments\",\"reactions\",\"reactions-+1\",\"reactions--1\",\"reactions-smile\",\"reactions-thinking_face\",\"reactions-heart\",\"reactions-tada\",\"interactions\",\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/search/issues\"},\"labels\":{\"method\":\"GET\",\"params\":{\"order\":{\"enum\":[\"desc\",\"asc\"],\"type\":\"string\"},\"q\":{\"required\":true,\"type\":\"string\"},\"repository_id\":{\"required\":true,\"type\":\"integer\"},\"sort\":{\"enum\":[\"created\",\"updated\"],\"type\":\"string\"}},\"url\":\"/search/labels\"},\"repos\":{\"method\":\"GET\",\"params\":{\"order\":{\"enum\":[\"desc\",\"asc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"q\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"stars\",\"forks\",\"help-wanted-issues\",\"updated\"],\"type\":\"string\"}},\"url\":\"/search/repositories\"},\"topics\":{\"method\":\"GET\",\"params\":{\"q\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/search/topics\"},\"users\":{\"method\":\"GET\",\"params\":{\"order\":{\"enum\":[\"desc\",\"asc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"q\":{\"required\":true,\"type\":\"string\"},\"sort\":{\"enum\":[\"followers\",\"repositories\",\"joined\"],\"type\":\"string\"}},\"url\":\"/search/users\"}},\"teams\":{\"addMember\":{\"deprecated\":\"octokit.teams.addMember() is deprecated, see https://developer.github.com/v3/teams/members/#add-team-member\",\"method\":\"PUT\",\"params\":{\"team_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/teams/:team_id/members/:username\"},\"addOrUpdateMembership\":{\"method\":\"PUT\",\"params\":{\"role\":{\"enum\":[\"member\",\"maintainer\"],\"type\":\"string\"},\"team_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/teams/:team_id/memberships/:username\"},\"addOrUpdateProject\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"PUT\",\"params\":{\"permission\":{\"enum\":[\"read\",\"write\",\"admin\"],\"type\":\"string\"},\"project_id\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/projects/:project_id\"},\"addOrUpdateRepo\":{\"method\":\"PUT\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"permission\":{\"enum\":[\"pull\",\"push\",\"admin\"],\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/repos/:owner/:repo\"},\"checkManagesRepo\":{\"method\":\"GET\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/repos/:owner/:repo\"},\"create\":{\"method\":\"POST\",\"params\":{\"description\":{\"type\":\"string\"},\"maintainers\":{\"type\":\"string[]\"},\"name\":{\"required\":true,\"type\":\"string\"},\"org\":{\"required\":true,\"type\":\"string\"},\"parent_team_id\":{\"type\":\"integer\"},\"permission\":{\"enum\":[\"pull\",\"push\",\"admin\"],\"type\":\"string\"},\"privacy\":{\"enum\":[\"secret\",\"closed\"],\"type\":\"string\"},\"repo_names\":{\"type\":\"string[]\"}},\"url\":\"/orgs/:org/teams\"},\"createDiscussion\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"private\":{\"type\":\"boolean\"},\"team_id\":{\"required\":true,\"type\":\"integer\"},\"title\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/teams/:team_id/discussions\"},\"createDiscussionComment\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"POST\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/comments\"},\"delete\":{\"method\":\"DELETE\",\"params\":{\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id\"},\"deleteDiscussion\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"DELETE\",\"params\":{\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number\"},\"deleteDiscussionComment\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"DELETE\",\"params\":{\"comment_number\":{\"required\":true,\"type\":\"integer\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/comments/:comment_number\"},\"get\":{\"method\":\"GET\",\"params\":{\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id\"},\"getByName\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"team_slug\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/orgs/:org/teams/:team_slug\"},\"getDiscussion\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"GET\",\"params\":{\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number\"},\"getDiscussionComment\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"GET\",\"params\":{\"comment_number\":{\"required\":true,\"type\":\"integer\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/comments/:comment_number\"},\"getMember\":{\"deprecated\":\"octokit.teams.getMember() is deprecated, see https://developer.github.com/v3/teams/members/#get-team-member\",\"method\":\"GET\",\"params\":{\"team_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/teams/:team_id/members/:username\"},\"getMembership\":{\"method\":\"GET\",\"params\":{\"team_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/teams/:team_id/memberships/:username\"},\"list\":{\"method\":\"GET\",\"params\":{\"org\":{\"required\":true,\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/orgs/:org/teams\"},\"listChild\":{\"headers\":{\"accept\":\"application/vnd.github.hellcat-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/teams\"},\"listDiscussionComments\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/comments\"},\"listDiscussions\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"GET\",\"params\":{\"direction\":{\"enum\":[\"asc\",\"desc\"],\"type\":\"string\"},\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions\"},\"listForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/teams\"},\"listMembers\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"role\":{\"enum\":[\"member\",\"maintainer\",\"all\"],\"type\":\"string\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/members\"},\"listPendingInvitations\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/invitations\"},\"listProjects\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/projects\"},\"listRepos\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/repos\"},\"removeMember\":{\"deprecated\":\"octokit.teams.removeMember() is deprecated, see https://developer.github.com/v3/teams/members/#remove-team-member\",\"method\":\"DELETE\",\"params\":{\"team_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/teams/:team_id/members/:username\"},\"removeMembership\":{\"method\":\"DELETE\",\"params\":{\"team_id\":{\"required\":true,\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/teams/:team_id/memberships/:username\"},\"removeProject\":{\"method\":\"DELETE\",\"params\":{\"project_id\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/projects/:project_id\"},\"removeRepo\":{\"method\":\"DELETE\",\"params\":{\"owner\":{\"required\":true,\"type\":\"string\"},\"repo\":{\"required\":true,\"type\":\"string\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/repos/:owner/:repo\"},\"reviewProject\":{\"headers\":{\"accept\":\"application/vnd.github.inertia-preview+json\"},\"method\":\"GET\",\"params\":{\"project_id\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/projects/:project_id\"},\"update\":{\"method\":\"PATCH\",\"params\":{\"description\":{\"type\":\"string\"},\"name\":{\"required\":true,\"type\":\"string\"},\"parent_team_id\":{\"type\":\"integer\"},\"permission\":{\"enum\":[\"pull\",\"push\",\"admin\"],\"type\":\"string\"},\"privacy\":{\"enum\":[\"secret\",\"closed\"],\"type\":\"string\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id\"},\"updateDiscussion\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"PATCH\",\"params\":{\"body\":{\"type\":\"string\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"},\"title\":{\"type\":\"string\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number\"},\"updateDiscussionComment\":{\"headers\":{\"accept\":\"application/vnd.github.echo-preview+json\"},\"method\":\"PATCH\",\"params\":{\"body\":{\"required\":true,\"type\":\"string\"},\"comment_number\":{\"required\":true,\"type\":\"integer\"},\"discussion_number\":{\"required\":true,\"type\":\"integer\"},\"team_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/teams/:team_id/discussions/:discussion_number/comments/:comment_number\"}},\"users\":{\"addEmails\":{\"method\":\"POST\",\"params\":{\"emails\":{\"required\":true,\"type\":\"string[]\"}},\"url\":\"/user/emails\"},\"block\":{\"method\":\"PUT\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/blocks/:username\"},\"checkBlocked\":{\"method\":\"GET\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/blocks/:username\"},\"checkFollowing\":{\"method\":\"GET\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/following/:username\"},\"checkFollowingForUser\":{\"method\":\"GET\",\"params\":{\"target_user\":{\"required\":true,\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/following/:target_user\"},\"createGpgKey\":{\"method\":\"POST\",\"params\":{\"armored_public_key\":{\"type\":\"string\"}},\"url\":\"/user/gpg_keys\"},\"createPublicKey\":{\"method\":\"POST\",\"params\":{\"key\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"url\":\"/user/keys\"},\"deleteEmails\":{\"method\":\"DELETE\",\"params\":{\"emails\":{\"required\":true,\"type\":\"string[]\"}},\"url\":\"/user/emails\"},\"deleteGpgKey\":{\"method\":\"DELETE\",\"params\":{\"gpg_key_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/gpg_keys/:gpg_key_id\"},\"deletePublicKey\":{\"method\":\"DELETE\",\"params\":{\"key_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/keys/:key_id\"},\"follow\":{\"method\":\"PUT\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/following/:username\"},\"getAuthenticated\":{\"method\":\"GET\",\"params\":{},\"url\":\"/user\"},\"getByUsername\":{\"method\":\"GET\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username\"},\"getContextForUser\":{\"headers\":{\"accept\":\"application/vnd.github.hagar-preview+json\"},\"method\":\"GET\",\"params\":{\"subject_id\":{\"type\":\"string\"},\"subject_type\":{\"enum\":[\"organization\",\"repository\",\"issue\",\"pull_request\"],\"type\":\"string\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/hovercard\"},\"getGpgKey\":{\"method\":\"GET\",\"params\":{\"gpg_key_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/gpg_keys/:gpg_key_id\"},\"getPublicKey\":{\"method\":\"GET\",\"params\":{\"key_id\":{\"required\":true,\"type\":\"integer\"}},\"url\":\"/user/keys/:key_id\"},\"list\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"since\":{\"type\":\"string\"}},\"url\":\"/users\"},\"listBlocked\":{\"method\":\"GET\",\"params\":{},\"url\":\"/user/blocks\"},\"listEmails\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/emails\"},\"listFollowersForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/followers\"},\"listFollowersForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/followers\"},\"listFollowingForAuthenticatedUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/following\"},\"listFollowingForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/following\"},\"listGpgKeys\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/gpg_keys\"},\"listGpgKeysForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/gpg_keys\"},\"listPublicEmails\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/public_emails\"},\"listPublicKeys\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"}},\"url\":\"/user/keys\"},\"listPublicKeysForUser\":{\"method\":\"GET\",\"params\":{\"page\":{\"type\":\"integer\"},\"per_page\":{\"type\":\"integer\"},\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/users/:username/keys\"},\"togglePrimaryEmailVisibility\":{\"method\":\"PATCH\",\"params\":{\"email\":{\"required\":true,\"type\":\"string\"},\"visibility\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/email/visibility\"},\"unblock\":{\"method\":\"DELETE\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/blocks/:username\"},\"unfollow\":{\"method\":\"DELETE\",\"params\":{\"username\":{\"required\":true,\"type\":\"string\"}},\"url\":\"/user/following/:username\"},\"updateAuthenticated\":{\"method\":\"PATCH\",\"params\":{\"bio\":{\"type\":\"string\"},\"blog\":{\"type\":\"string\"},\"company\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"hireable\":{\"type\":\"boolean\"},\"location\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"}},\"url\":\"/user\"}}}");
+
+/***/ }),
+/* 97 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = octokitValidate;
+
+const validate = __webpack_require__(98);
+
+function octokitValidate(octokit) {
+  octokit.hook.before("request", validate.bind(null, octokit));
+}
+
+
+/***/ }),
+/* 98 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+module.exports = validate;
+
+const { RequestError } = __webpack_require__(64);
+const get = __webpack_require__(99);
+const set = __webpack_require__(100);
+
+function validate(octokit, options) {
+  if (!options.request.validate) {
+    return;
+  }
+  const { validate: params } = options.request;
+
+  Object.keys(params).forEach(parameterName => {
+    const parameter = get(params, parameterName);
+
+    const expectedType = parameter.type;
+    let parentParameterName;
+    let parentValue;
+    let parentParamIsPresent = true;
+    let parentParameterIsArray = false;
+
+    if (/\./.test(parameterName)) {
+      parentParameterName = parameterName.replace(/\.[^.]+$/, "");
+      parentParameterIsArray = parentParameterName.slice(-2) === "[]";
+      if (parentParameterIsArray) {
+        parentParameterName = parentParameterName.slice(0, -2);
+      }
+      parentValue = get(options, parentParameterName);
+      parentParamIsPresent =
+        parentParameterName === "headers" ||
+        (typeof parentValue === "object" && parentValue !== null);
+    }
+
+    const values = parentParameterIsArray
+      ? (get(options, parentParameterName) || []).map(
+          value => value[parameterName.split(/\./).pop()]
+        )
+      : [get(options, parameterName)];
+
+    values.forEach((value, i) => {
+      const valueIsPresent = typeof value !== "undefined";
+      const valueIsNull = value === null;
+      const currentParameterName = parentParameterIsArray
+        ? parameterName.replace(/\[\]/, `[${i}]`)
+        : parameterName;
+
+      if (!parameter.required && !valueIsPresent) {
+        return;
+      }
+
+      // if the parent parameter is of type object but allows null
+      // then the child parameters can be ignored
+      if (!parentParamIsPresent) {
+        return;
+      }
+
+      if (parameter.allowNull && valueIsNull) {
+        return;
+      }
+
+      if (!parameter.allowNull && valueIsNull) {
+        throw new RequestError(
+          `'${currentParameterName}' cannot be null`,
+          400,
+          {
+            request: options
+          }
+        );
+      }
+
+      if (parameter.required && !valueIsPresent) {
+        throw new RequestError(
+          `Empty value for parameter '${currentParameterName}': ${JSON.stringify(
+            value
+          )}`,
+          400,
+          {
+            request: options
+          }
+        );
+      }
+
+      // parse to integer before checking for enum
+      // so that string "1" will match enum with number 1
+      if (expectedType === "integer") {
+        const unparsedValue = value;
+        value = parseInt(value, 10);
+        if (isNaN(value)) {
+          throw new RequestError(
+            `Invalid value for parameter '${currentParameterName}': ${JSON.stringify(
+              unparsedValue
+            )} is NaN`,
+            400,
+            {
+              request: options
+            }
+          );
+        }
+      }
+
+      if (parameter.enum && parameter.enum.indexOf(String(value)) === -1) {
+        throw new RequestError(
+          `Invalid value for parameter '${currentParameterName}': ${JSON.stringify(
+            value
+          )}`,
+          400,
+          {
+            request: options
+          }
+        );
+      }
+
+      if (parameter.validation) {
+        const regex = new RegExp(parameter.validation);
+        if (!regex.test(value)) {
+          throw new RequestError(
+            `Invalid value for parameter '${currentParameterName}': ${JSON.stringify(
+              value
+            )}`,
+            400,
+            {
+              request: options
+            }
+          );
+        }
+      }
+
+      if (expectedType === "object" && typeof value === "string") {
+        try {
+          value = JSON.parse(value);
+        } catch (exception) {
+          throw new RequestError(
+            `JSON parse error of value for parameter '${currentParameterName}': ${JSON.stringify(
+              value
+            )}`,
+            400,
+            {
+              request: options
+            }
+          );
+        }
+      }
+
+      set(options, parameter.mapTo || currentParameterName, value);
+    });
+  });
+
+  return options;
+}
+
+
+/***/ }),
+/* 99 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/* WEBPACK VAR INJECTION */(function(global) {/**
+ * lodash (Custom Build) <https://lodash.com/>
+ * Build: `lodash modularize exports="npm" -o ./`
+ * Copyright jQuery Foundation and other contributors <https://jquery.org/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+
+/** Used as the `TypeError` message for "Functions" methods. */
+var FUNC_ERROR_TEXT = 'Expected a function';
+
+/** Used to stand-in for `undefined` hash values. */
+var HASH_UNDEFINED = '__lodash_hash_undefined__';
+
+/** Used as references for various `Number` constants. */
+var INFINITY = 1 / 0;
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]',
+    genTag = '[object GeneratorFunction]',
+    symbolTag = '[object Symbol]';
+
+/** Used to match property names within property paths. */
+var reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/,
+    reIsPlainProp = /^\w*$/,
+    reLeadingDot = /^\./,
+    rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g;
+
+/**
+ * Used to match `RegExp`
+ * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
+ */
+var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+
+/** Used to match backslashes in property paths. */
+var reEscapeChar = /\\(\\)?/g;
+
+/** Used to detect host constructors (Safari). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/**
+ * Gets the value at `key` of `object`.
+ *
+ * @private
+ * @param {Object} [object] The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function getValue(object, key) {
+  return object == null ? undefined : object[key];
+}
+
+/**
+ * Checks if `value` is a host object in IE < 9.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a host object, else `false`.
+ */
+function isHostObject(value) {
+  // Many host objects are `Object` objects that can coerce to strings
+  // despite having improperly defined `toString` methods.
+  var result = false;
+  if (value != null && typeof value.toString != 'function') {
+    try {
+      result = !!(value + '');
+    } catch (e) {}
+  }
+  return result;
+}
+
+/** Used for built-in method references. */
+var arrayProto = Array.prototype,
+    funcProto = Function.prototype,
+    objectProto = Object.prototype;
+
+/** Used to detect overreaching core-js shims. */
+var coreJsData = root['__core-js_shared__'];
+
+/** Used to detect methods masquerading as native. */
+var maskSrcKey = (function() {
+  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
+  return uid ? ('Symbol(src)_1.' + uid) : '';
+}());
+
+/** Used to resolve the decompiled source of functions. */
+var funcToString = funcProto.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objectToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/** Built-in value references. */
+var Symbol = root.Symbol,
+    splice = arrayProto.splice;
+
+/* Built-in method references that are verified to be native. */
+var Map = getNative(root, 'Map'),
+    nativeCreate = getNative(Object, 'create');
+
+/** Used to convert symbols to primitives and strings. */
+var symbolProto = Symbol ? Symbol.prototype : undefined,
+    symbolToString = symbolProto ? symbolProto.toString : undefined;
+
+/**
+ * Creates a hash object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Hash(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the hash.
+ *
+ * @private
+ * @name clear
+ * @memberOf Hash
+ */
+function hashClear() {
+  this.__data__ = nativeCreate ? nativeCreate(null) : {};
+}
+
+/**
+ * Removes `key` and its value from the hash.
+ *
+ * @private
+ * @name delete
+ * @memberOf Hash
+ * @param {Object} hash The hash to modify.
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function hashDelete(key) {
+  return this.has(key) && delete this.__data__[key];
+}
+
+/**
+ * Gets the hash value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Hash
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function hashGet(key) {
+  var data = this.__data__;
+  if (nativeCreate) {
+    var result = data[key];
+    return result === HASH_UNDEFINED ? undefined : result;
+  }
+  return hasOwnProperty.call(data, key) ? data[key] : undefined;
+}
+
+/**
+ * Checks if a hash value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Hash
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function hashHas(key) {
+  var data = this.__data__;
+  return nativeCreate ? data[key] !== undefined : hasOwnProperty.call(data, key);
+}
+
+/**
+ * Sets the hash `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Hash
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the hash instance.
+ */
+function hashSet(key, value) {
+  var data = this.__data__;
+  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
+  return this;
+}
+
+// Add methods to `Hash`.
+Hash.prototype.clear = hashClear;
+Hash.prototype['delete'] = hashDelete;
+Hash.prototype.get = hashGet;
+Hash.prototype.has = hashHas;
+Hash.prototype.set = hashSet;
+
+/**
+ * Creates an list cache object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function ListCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the list cache.
+ *
+ * @private
+ * @name clear
+ * @memberOf ListCache
+ */
+function listCacheClear() {
+  this.__data__ = [];
+}
+
+/**
+ * Removes `key` and its value from the list cache.
+ *
+ * @private
+ * @name delete
+ * @memberOf ListCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function listCacheDelete(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    return false;
+  }
+  var lastIndex = data.length - 1;
+  if (index == lastIndex) {
+    data.pop();
+  } else {
+    splice.call(data, index, 1);
+  }
+  return true;
+}
+
+/**
+ * Gets the list cache value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf ListCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function listCacheGet(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  return index < 0 ? undefined : data[index][1];
+}
+
+/**
+ * Checks if a list cache value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf ListCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function listCacheHas(key) {
+  return assocIndexOf(this.__data__, key) > -1;
+}
+
+/**
+ * Sets the list cache `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf ListCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the list cache instance.
+ */
+function listCacheSet(key, value) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    data.push([key, value]);
+  } else {
+    data[index][1] = value;
+  }
+  return this;
+}
+
+// Add methods to `ListCache`.
+ListCache.prototype.clear = listCacheClear;
+ListCache.prototype['delete'] = listCacheDelete;
+ListCache.prototype.get = listCacheGet;
+ListCache.prototype.has = listCacheHas;
+ListCache.prototype.set = listCacheSet;
+
+/**
+ * Creates a map cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function MapCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the map.
+ *
+ * @private
+ * @name clear
+ * @memberOf MapCache
+ */
+function mapCacheClear() {
+  this.__data__ = {
+    'hash': new Hash,
+    'map': new (Map || ListCache),
+    'string': new Hash
+  };
+}
+
+/**
+ * Removes `key` and its value from the map.
+ *
+ * @private
+ * @name delete
+ * @memberOf MapCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function mapCacheDelete(key) {
+  return getMapData(this, key)['delete'](key);
+}
+
+/**
+ * Gets the map value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf MapCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function mapCacheGet(key) {
+  return getMapData(this, key).get(key);
+}
+
+/**
+ * Checks if a map value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf MapCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function mapCacheHas(key) {
+  return getMapData(this, key).has(key);
+}
+
+/**
+ * Sets the map `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf MapCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the map cache instance.
+ */
+function mapCacheSet(key, value) {
+  getMapData(this, key).set(key, value);
+  return this;
+}
+
+// Add methods to `MapCache`.
+MapCache.prototype.clear = mapCacheClear;
+MapCache.prototype['delete'] = mapCacheDelete;
+MapCache.prototype.get = mapCacheGet;
+MapCache.prototype.has = mapCacheHas;
+MapCache.prototype.set = mapCacheSet;
+
+/**
+ * Gets the index at which the `key` is found in `array` of key-value pairs.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} key The key to search for.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function assocIndexOf(array, key) {
+  var length = array.length;
+  while (length--) {
+    if (eq(array[length][0], key)) {
+      return length;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.get` without support for default values.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {Array|string} path The path of the property to get.
+ * @returns {*} Returns the resolved value.
+ */
+function baseGet(object, path) {
+  path = isKey(path, object) ? [path] : castPath(path);
+
+  var index = 0,
+      length = path.length;
+
+  while (object != null && index < length) {
+    object = object[toKey(path[index++])];
+  }
+  return (index && index == length) ? object : undefined;
+}
+
+/**
+ * The base implementation of `_.isNative` without bad shim checks.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function,
+ *  else `false`.
+ */
+function baseIsNative(value) {
+  if (!isObject(value) || isMasked(value)) {
+    return false;
+  }
+  var pattern = (isFunction(value) || isHostObject(value)) ? reIsNative : reIsHostCtor;
+  return pattern.test(toSource(value));
+}
+
+/**
+ * The base implementation of `_.toString` which doesn't convert nullish
+ * values to empty strings.
+ *
+ * @private
+ * @param {*} value The value to process.
+ * @returns {string} Returns the string.
+ */
+function baseToString(value) {
+  // Exit early for strings to avoid a performance hit in some environments.
+  if (typeof value == 'string') {
+    return value;
+  }
+  if (isSymbol(value)) {
+    return symbolToString ? symbolToString.call(value) : '';
+  }
+  var result = (value + '');
+  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
+}
+
+/**
+ * Casts `value` to a path array if it's not one.
+ *
+ * @private
+ * @param {*} value The value to inspect.
+ * @returns {Array} Returns the cast property path array.
+ */
+function castPath(value) {
+  return isArray(value) ? value : stringToPath(value);
+}
+
+/**
+ * Gets the data for `map`.
+ *
+ * @private
+ * @param {Object} map The map to query.
+ * @param {string} key The reference key.
+ * @returns {*} Returns the map data.
+ */
+function getMapData(map, key) {
+  var data = map.__data__;
+  return isKeyable(key)
+    ? data[typeof key == 'string' ? 'string' : 'hash']
+    : data.map;
+}
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = getValue(object, key);
+  return baseIsNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is a property name and not a property path.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {Object} [object] The object to query keys on.
+ * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
+ */
+function isKey(value, object) {
+  if (isArray(value)) {
+    return false;
+  }
+  var type = typeof value;
+  if (type == 'number' || type == 'symbol' || type == 'boolean' ||
+      value == null || isSymbol(value)) {
+    return true;
+  }
+  return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
+    (object != null && value in Object(object));
+}
+
+/**
+ * Checks if `value` is suitable for use as unique object key.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
+ */
+function isKeyable(value) {
+  var type = typeof value;
+  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
+    ? (value !== '__proto__')
+    : (value === null);
+}
+
+/**
+ * Checks if `func` has its source masked.
+ *
+ * @private
+ * @param {Function} func The function to check.
+ * @returns {boolean} Returns `true` if `func` is masked, else `false`.
+ */
+function isMasked(func) {
+  return !!maskSrcKey && (maskSrcKey in func);
+}
+
+/**
+ * Converts `string` to a property path array.
+ *
+ * @private
+ * @param {string} string The string to convert.
+ * @returns {Array} Returns the property path array.
+ */
+var stringToPath = memoize(function(string) {
+  string = toString(string);
+
+  var result = [];
+  if (reLeadingDot.test(string)) {
+    result.push('');
+  }
+  string.replace(rePropName, function(match, number, quote, string) {
+    result.push(quote ? string.replace(reEscapeChar, '$1') : (number || match));
+  });
+  return result;
+});
+
+/**
+ * Converts `value` to a string key if it's not a string or symbol.
+ *
+ * @private
+ * @param {*} value The value to inspect.
+ * @returns {string|symbol} Returns the key.
+ */
+function toKey(value) {
+  if (typeof value == 'string' || isSymbol(value)) {
+    return value;
+  }
+  var result = (value + '');
+  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
+}
+
+/**
+ * Converts `func` to its source code.
+ *
+ * @private
+ * @param {Function} func The function to process.
+ * @returns {string} Returns the source code.
+ */
+function toSource(func) {
+  if (func != null) {
+    try {
+      return funcToString.call(func);
+    } catch (e) {}
+    try {
+      return (func + '');
+    } catch (e) {}
+  }
+  return '';
+}
+
+/**
+ * Creates a function that memoizes the result of `func`. If `resolver` is
+ * provided, it determines the cache key for storing the result based on the
+ * arguments provided to the memoized function. By default, the first argument
+ * provided to the memoized function is used as the map cache key. The `func`
+ * is invoked with the `this` binding of the memoized function.
+ *
+ * **Note:** The cache is exposed as the `cache` property on the memoized
+ * function. Its creation may be customized by replacing the `_.memoize.Cache`
+ * constructor with one whose instances implement the
+ * [`Map`](http://ecma-international.org/ecma-262/7.0/#sec-properties-of-the-map-prototype-object)
+ * method interface of `delete`, `get`, `has`, and `set`.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Function
+ * @param {Function} func The function to have its output memoized.
+ * @param {Function} [resolver] The function to resolve the cache key.
+ * @returns {Function} Returns the new memoized function.
+ * @example
+ *
+ * var object = { 'a': 1, 'b': 2 };
+ * var other = { 'c': 3, 'd': 4 };
+ *
+ * var values = _.memoize(_.values);
+ * values(object);
+ * // => [1, 2]
+ *
+ * values(other);
+ * // => [3, 4]
+ *
+ * object.a = 2;
+ * values(object);
+ * // => [1, 2]
+ *
+ * // Modify the result cache.
+ * values.cache.set(object, ['a', 'b']);
+ * values(object);
+ * // => ['a', 'b']
+ *
+ * // Replace `_.memoize.Cache`.
+ * _.memoize.Cache = WeakMap;
+ */
+function memoize(func, resolver) {
+  if (typeof func != 'function' || (resolver && typeof resolver != 'function')) {
+    throw new TypeError(FUNC_ERROR_TEXT);
+  }
+  var memoized = function() {
+    var args = arguments,
+        key = resolver ? resolver.apply(this, args) : args[0],
+        cache = memoized.cache;
+
+    if (cache.has(key)) {
+      return cache.get(key);
+    }
+    var result = func.apply(this, args);
+    memoized.cache = cache.set(key, result);
+    return result;
+  };
+  memoized.cache = new (memoize.Cache || MapCache);
+  return memoized;
+}
+
+// Assign cache to `_.memoize`.
+memoize.Cache = MapCache;
+
+/**
+ * Performs a
+ * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * comparison between two values to determine if they are equivalent.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ * var other = { 'a': 1 };
+ *
+ * _.eq(object, object);
+ * // => true
+ *
+ * _.eq(object, other);
+ * // => false
+ *
+ * _.eq('a', 'a');
+ * // => true
+ *
+ * _.eq('a', Object('a'));
+ * // => false
+ *
+ * _.eq(NaN, NaN);
+ * // => true
+ */
+function eq(value, other) {
+  return value === other || (value !== value && other !== other);
+}
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(document.body.children);
+ * // => false
+ *
+ * _.isArray('abc');
+ * // => false
+ *
+ * _.isArray(_.noop);
+ * // => false
+ */
+var isArray = Array.isArray;
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 8-9 which returns 'object' for typed array and other constructors.
+  var tag = isObject(value) ? objectToString.call(value) : '';
+  return tag == funcTag || tag == genTag;
+}
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/**
+ * Checks if `value` is classified as a `Symbol` primitive or object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.
+ * @example
+ *
+ * _.isSymbol(Symbol.iterator);
+ * // => true
+ *
+ * _.isSymbol('abc');
+ * // => false
+ */
+function isSymbol(value) {
+  return typeof value == 'symbol' ||
+    (isObjectLike(value) && objectToString.call(value) == symbolTag);
+}
+
+/**
+ * Converts `value` to a string. An empty string is returned for `null`
+ * and `undefined` values. The sign of `-0` is preserved.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to process.
+ * @returns {string} Returns the string.
+ * @example
+ *
+ * _.toString(null);
+ * // => ''
+ *
+ * _.toString(-0);
+ * // => '-0'
+ *
+ * _.toString([1, 2, 3]);
+ * // => '1,2,3'
+ */
+function toString(value) {
+  return value == null ? '' : baseToString(value);
+}
+
+/**
+ * Gets the value at `path` of `object`. If the resolved value is
+ * `undefined`, the `defaultValue` is returned in its place.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.7.0
+ * @category Object
+ * @param {Object} object The object to query.
+ * @param {Array|string} path The path of the property to get.
+ * @param {*} [defaultValue] The value returned for `undefined` resolved values.
+ * @returns {*} Returns the resolved value.
+ * @example
+ *
+ * var object = { 'a': [{ 'b': { 'c': 3 } }] };
+ *
+ * _.get(object, 'a[0].b.c');
+ * // => 3
+ *
+ * _.get(object, ['a', '0', 'b', 'c']);
+ * // => 3
+ *
+ * _.get(object, 'a.b.c', 'default');
+ * // => 'default'
+ */
+function get(object, path, defaultValue) {
+  var result = object == null ? undefined : baseGet(object, path);
+  return result === undefined ? defaultValue : result;
+}
+
+module.exports = get;
+
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(8)))
+
+/***/ }),
+/* 100 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/* WEBPACK VAR INJECTION */(function(global) {/**
+ * lodash (Custom Build) <https://lodash.com/>
+ * Build: `lodash modularize exports="npm" -o ./`
+ * Copyright jQuery Foundation and other contributors <https://jquery.org/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+
+/** Used as the `TypeError` message for "Functions" methods. */
+var FUNC_ERROR_TEXT = 'Expected a function';
+
+/** Used to stand-in for `undefined` hash values. */
+var HASH_UNDEFINED = '__lodash_hash_undefined__';
+
+/** Used as references for various `Number` constants. */
+var INFINITY = 1 / 0,
+    MAX_SAFE_INTEGER = 9007199254740991;
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]',
+    genTag = '[object GeneratorFunction]',
+    symbolTag = '[object Symbol]';
+
+/** Used to match property names within property paths. */
+var reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/,
+    reIsPlainProp = /^\w*$/,
+    reLeadingDot = /^\./,
+    rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g;
+
+/**
+ * Used to match `RegExp`
+ * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
+ */
+var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+
+/** Used to match backslashes in property paths. */
+var reEscapeChar = /\\(\\)?/g;
+
+/** Used to detect host constructors (Safari). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^(?:0|[1-9]\d*)$/;
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/**
+ * Gets the value at `key` of `object`.
+ *
+ * @private
+ * @param {Object} [object] The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function getValue(object, key) {
+  return object == null ? undefined : object[key];
+}
+
+/**
+ * Checks if `value` is a host object in IE < 9.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a host object, else `false`.
+ */
+function isHostObject(value) {
+  // Many host objects are `Object` objects that can coerce to strings
+  // despite having improperly defined `toString` methods.
+  var result = false;
+  if (value != null && typeof value.toString != 'function') {
+    try {
+      result = !!(value + '');
+    } catch (e) {}
+  }
+  return result;
+}
+
+/** Used for built-in method references. */
+var arrayProto = Array.prototype,
+    funcProto = Function.prototype,
+    objectProto = Object.prototype;
+
+/** Used to detect overreaching core-js shims. */
+var coreJsData = root['__core-js_shared__'];
+
+/** Used to detect methods masquerading as native. */
+var maskSrcKey = (function() {
+  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
+  return uid ? ('Symbol(src)_1.' + uid) : '';
+}());
+
+/** Used to resolve the decompiled source of functions. */
+var funcToString = funcProto.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objectToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/** Built-in value references. */
+var Symbol = root.Symbol,
+    splice = arrayProto.splice;
+
+/* Built-in method references that are verified to be native. */
+var Map = getNative(root, 'Map'),
+    nativeCreate = getNative(Object, 'create');
+
+/** Used to convert symbols to primitives and strings. */
+var symbolProto = Symbol ? Symbol.prototype : undefined,
+    symbolToString = symbolProto ? symbolProto.toString : undefined;
+
+/**
+ * Creates a hash object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Hash(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the hash.
+ *
+ * @private
+ * @name clear
+ * @memberOf Hash
+ */
+function hashClear() {
+  this.__data__ = nativeCreate ? nativeCreate(null) : {};
+}
+
+/**
+ * Removes `key` and its value from the hash.
+ *
+ * @private
+ * @name delete
+ * @memberOf Hash
+ * @param {Object} hash The hash to modify.
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function hashDelete(key) {
+  return this.has(key) && delete this.__data__[key];
+}
+
+/**
+ * Gets the hash value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Hash
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function hashGet(key) {
+  var data = this.__data__;
+  if (nativeCreate) {
+    var result = data[key];
+    return result === HASH_UNDEFINED ? undefined : result;
+  }
+  return hasOwnProperty.call(data, key) ? data[key] : undefined;
+}
+
+/**
+ * Checks if a hash value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Hash
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function hashHas(key) {
+  var data = this.__data__;
+  return nativeCreate ? data[key] !== undefined : hasOwnProperty.call(data, key);
+}
+
+/**
+ * Sets the hash `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Hash
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the hash instance.
+ */
+function hashSet(key, value) {
+  var data = this.__data__;
+  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
+  return this;
+}
+
+// Add methods to `Hash`.
+Hash.prototype.clear = hashClear;
+Hash.prototype['delete'] = hashDelete;
+Hash.prototype.get = hashGet;
+Hash.prototype.has = hashHas;
+Hash.prototype.set = hashSet;
+
+/**
+ * Creates an list cache object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function ListCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the list cache.
+ *
+ * @private
+ * @name clear
+ * @memberOf ListCache
+ */
+function listCacheClear() {
+  this.__data__ = [];
+}
+
+/**
+ * Removes `key` and its value from the list cache.
+ *
+ * @private
+ * @name delete
+ * @memberOf ListCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function listCacheDelete(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    return false;
+  }
+  var lastIndex = data.length - 1;
+  if (index == lastIndex) {
+    data.pop();
+  } else {
+    splice.call(data, index, 1);
+  }
+  return true;
+}
+
+/**
+ * Gets the list cache value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf ListCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function listCacheGet(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  return index < 0 ? undefined : data[index][1];
+}
+
+/**
+ * Checks if a list cache value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf ListCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function listCacheHas(key) {
+  return assocIndexOf(this.__data__, key) > -1;
+}
+
+/**
+ * Sets the list cache `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf ListCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the list cache instance.
+ */
+function listCacheSet(key, value) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    data.push([key, value]);
+  } else {
+    data[index][1] = value;
+  }
+  return this;
+}
+
+// Add methods to `ListCache`.
+ListCache.prototype.clear = listCacheClear;
+ListCache.prototype['delete'] = listCacheDelete;
+ListCache.prototype.get = listCacheGet;
+ListCache.prototype.has = listCacheHas;
+ListCache.prototype.set = listCacheSet;
+
+/**
+ * Creates a map cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function MapCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the map.
+ *
+ * @private
+ * @name clear
+ * @memberOf MapCache
+ */
+function mapCacheClear() {
+  this.__data__ = {
+    'hash': new Hash,
+    'map': new (Map || ListCache),
+    'string': new Hash
+  };
+}
+
+/**
+ * Removes `key` and its value from the map.
+ *
+ * @private
+ * @name delete
+ * @memberOf MapCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function mapCacheDelete(key) {
+  return getMapData(this, key)['delete'](key);
+}
+
+/**
+ * Gets the map value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf MapCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function mapCacheGet(key) {
+  return getMapData(this, key).get(key);
+}
+
+/**
+ * Checks if a map value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf MapCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function mapCacheHas(key) {
+  return getMapData(this, key).has(key);
+}
+
+/**
+ * Sets the map `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf MapCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the map cache instance.
+ */
+function mapCacheSet(key, value) {
+  getMapData(this, key).set(key, value);
+  return this;
+}
+
+// Add methods to `MapCache`.
+MapCache.prototype.clear = mapCacheClear;
+MapCache.prototype['delete'] = mapCacheDelete;
+MapCache.prototype.get = mapCacheGet;
+MapCache.prototype.has = mapCacheHas;
+MapCache.prototype.set = mapCacheSet;
+
+/**
+ * Assigns `value` to `key` of `object` if the existing value is not equivalent
+ * using [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * for equality comparisons.
+ *
+ * @private
+ * @param {Object} object The object to modify.
+ * @param {string} key The key of the property to assign.
+ * @param {*} value The value to assign.
+ */
+function assignValue(object, key, value) {
+  var objValue = object[key];
+  if (!(hasOwnProperty.call(object, key) && eq(objValue, value)) ||
+      (value === undefined && !(key in object))) {
+    object[key] = value;
+  }
+}
+
+/**
+ * Gets the index at which the `key` is found in `array` of key-value pairs.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} key The key to search for.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function assocIndexOf(array, key) {
+  var length = array.length;
+  while (length--) {
+    if (eq(array[length][0], key)) {
+      return length;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.isNative` without bad shim checks.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function,
+ *  else `false`.
+ */
+function baseIsNative(value) {
+  if (!isObject(value) || isMasked(value)) {
+    return false;
+  }
+  var pattern = (isFunction(value) || isHostObject(value)) ? reIsNative : reIsHostCtor;
+  return pattern.test(toSource(value));
+}
+
+/**
+ * The base implementation of `_.set`.
+ *
+ * @private
+ * @param {Object} object The object to modify.
+ * @param {Array|string} path The path of the property to set.
+ * @param {*} value The value to set.
+ * @param {Function} [customizer] The function to customize path creation.
+ * @returns {Object} Returns `object`.
+ */
+function baseSet(object, path, value, customizer) {
+  if (!isObject(object)) {
+    return object;
+  }
+  path = isKey(path, object) ? [path] : castPath(path);
+
+  var index = -1,
+      length = path.length,
+      lastIndex = length - 1,
+      nested = object;
+
+  while (nested != null && ++index < length) {
+    var key = toKey(path[index]),
+        newValue = value;
+
+    if (index != lastIndex) {
+      var objValue = nested[key];
+      newValue = customizer ? customizer(objValue, key, nested) : undefined;
+      if (newValue === undefined) {
+        newValue = isObject(objValue)
+          ? objValue
+          : (isIndex(path[index + 1]) ? [] : {});
+      }
+    }
+    assignValue(nested, key, newValue);
+    nested = nested[key];
+  }
+  return object;
+}
+
+/**
+ * The base implementation of `_.toString` which doesn't convert nullish
+ * values to empty strings.
+ *
+ * @private
+ * @param {*} value The value to process.
+ * @returns {string} Returns the string.
+ */
+function baseToString(value) {
+  // Exit early for strings to avoid a performance hit in some environments.
+  if (typeof value == 'string') {
+    return value;
+  }
+  if (isSymbol(value)) {
+    return symbolToString ? symbolToString.call(value) : '';
+  }
+  var result = (value + '');
+  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
+}
+
+/**
+ * Casts `value` to a path array if it's not one.
+ *
+ * @private
+ * @param {*} value The value to inspect.
+ * @returns {Array} Returns the cast property path array.
+ */
+function castPath(value) {
+  return isArray(value) ? value : stringToPath(value);
+}
+
+/**
+ * Gets the data for `map`.
+ *
+ * @private
+ * @param {Object} map The map to query.
+ * @param {string} key The reference key.
+ * @returns {*} Returns the map data.
+ */
+function getMapData(map, key) {
+  var data = map.__data__;
+  return isKeyable(key)
+    ? data[typeof key == 'string' ? 'string' : 'hash']
+    : data.map;
+}
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = getValue(object, key);
+  return baseIsNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  length = length == null ? MAX_SAFE_INTEGER : length;
+  return !!length &&
+    (typeof value == 'number' || reIsUint.test(value)) &&
+    (value > -1 && value % 1 == 0 && value < length);
+}
+
+/**
+ * Checks if `value` is a property name and not a property path.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {Object} [object] The object to query keys on.
+ * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
+ */
+function isKey(value, object) {
+  if (isArray(value)) {
+    return false;
+  }
+  var type = typeof value;
+  if (type == 'number' || type == 'symbol' || type == 'boolean' ||
+      value == null || isSymbol(value)) {
+    return true;
+  }
+  return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
+    (object != null && value in Object(object));
+}
+
+/**
+ * Checks if `value` is suitable for use as unique object key.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
+ */
+function isKeyable(value) {
+  var type = typeof value;
+  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
+    ? (value !== '__proto__')
+    : (value === null);
+}
+
+/**
+ * Checks if `func` has its source masked.
+ *
+ * @private
+ * @param {Function} func The function to check.
+ * @returns {boolean} Returns `true` if `func` is masked, else `false`.
+ */
+function isMasked(func) {
+  return !!maskSrcKey && (maskSrcKey in func);
+}
+
+/**
+ * Converts `string` to a property path array.
+ *
+ * @private
+ * @param {string} string The string to convert.
+ * @returns {Array} Returns the property path array.
+ */
+var stringToPath = memoize(function(string) {
+  string = toString(string);
+
+  var result = [];
+  if (reLeadingDot.test(string)) {
+    result.push('');
+  }
+  string.replace(rePropName, function(match, number, quote, string) {
+    result.push(quote ? string.replace(reEscapeChar, '$1') : (number || match));
+  });
+  return result;
+});
+
+/**
+ * Converts `value` to a string key if it's not a string or symbol.
+ *
+ * @private
+ * @param {*} value The value to inspect.
+ * @returns {string|symbol} Returns the key.
+ */
+function toKey(value) {
+  if (typeof value == 'string' || isSymbol(value)) {
+    return value;
+  }
+  var result = (value + '');
+  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
+}
+
+/**
+ * Converts `func` to its source code.
+ *
+ * @private
+ * @param {Function} func The function to process.
+ * @returns {string} Returns the source code.
+ */
+function toSource(func) {
+  if (func != null) {
+    try {
+      return funcToString.call(func);
+    } catch (e) {}
+    try {
+      return (func + '');
+    } catch (e) {}
+  }
+  return '';
+}
+
+/**
+ * Creates a function that memoizes the result of `func`. If `resolver` is
+ * provided, it determines the cache key for storing the result based on the
+ * arguments provided to the memoized function. By default, the first argument
+ * provided to the memoized function is used as the map cache key. The `func`
+ * is invoked with the `this` binding of the memoized function.
+ *
+ * **Note:** The cache is exposed as the `cache` property on the memoized
+ * function. Its creation may be customized by replacing the `_.memoize.Cache`
+ * constructor with one whose instances implement the
+ * [`Map`](http://ecma-international.org/ecma-262/7.0/#sec-properties-of-the-map-prototype-object)
+ * method interface of `delete`, `get`, `has`, and `set`.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Function
+ * @param {Function} func The function to have its output memoized.
+ * @param {Function} [resolver] The function to resolve the cache key.
+ * @returns {Function} Returns the new memoized function.
+ * @example
+ *
+ * var object = { 'a': 1, 'b': 2 };
+ * var other = { 'c': 3, 'd': 4 };
+ *
+ * var values = _.memoize(_.values);
+ * values(object);
+ * // => [1, 2]
+ *
+ * values(other);
+ * // => [3, 4]
+ *
+ * object.a = 2;
+ * values(object);
+ * // => [1, 2]
+ *
+ * // Modify the result cache.
+ * values.cache.set(object, ['a', 'b']);
+ * values(object);
+ * // => ['a', 'b']
+ *
+ * // Replace `_.memoize.Cache`.
+ * _.memoize.Cache = WeakMap;
+ */
+function memoize(func, resolver) {
+  if (typeof func != 'function' || (resolver && typeof resolver != 'function')) {
+    throw new TypeError(FUNC_ERROR_TEXT);
+  }
+  var memoized = function() {
+    var args = arguments,
+        key = resolver ? resolver.apply(this, args) : args[0],
+        cache = memoized.cache;
+
+    if (cache.has(key)) {
+      return cache.get(key);
+    }
+    var result = func.apply(this, args);
+    memoized.cache = cache.set(key, result);
+    return result;
+  };
+  memoized.cache = new (memoize.Cache || MapCache);
+  return memoized;
+}
+
+// Assign cache to `_.memoize`.
+memoize.Cache = MapCache;
+
+/**
+ * Performs a
+ * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * comparison between two values to determine if they are equivalent.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ * var other = { 'a': 1 };
+ *
+ * _.eq(object, object);
+ * // => true
+ *
+ * _.eq(object, other);
+ * // => false
+ *
+ * _.eq('a', 'a');
+ * // => true
+ *
+ * _.eq('a', Object('a'));
+ * // => false
+ *
+ * _.eq(NaN, NaN);
+ * // => true
+ */
+function eq(value, other) {
+  return value === other || (value !== value && other !== other);
+}
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(document.body.children);
+ * // => false
+ *
+ * _.isArray('abc');
+ * // => false
+ *
+ * _.isArray(_.noop);
+ * // => false
+ */
+var isArray = Array.isArray;
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 8-9 which returns 'object' for typed array and other constructors.
+  var tag = isObject(value) ? objectToString.call(value) : '';
+  return tag == funcTag || tag == genTag;
+}
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/**
+ * Checks if `value` is classified as a `Symbol` primitive or object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.
+ * @example
+ *
+ * _.isSymbol(Symbol.iterator);
+ * // => true
+ *
+ * _.isSymbol('abc');
+ * // => false
+ */
+function isSymbol(value) {
+  return typeof value == 'symbol' ||
+    (isObjectLike(value) && objectToString.call(value) == symbolTag);
+}
+
+/**
+ * Converts `value` to a string. An empty string is returned for `null`
+ * and `undefined` values. The sign of `-0` is preserved.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to process.
+ * @returns {string} Returns the string.
+ * @example
+ *
+ * _.toString(null);
+ * // => ''
+ *
+ * _.toString(-0);
+ * // => '-0'
+ *
+ * _.toString([1, 2, 3]);
+ * // => '1,2,3'
+ */
+function toString(value) {
+  return value == null ? '' : baseToString(value);
+}
+
+/**
+ * Sets the value at `path` of `object`. If a portion of `path` doesn't exist,
+ * it's created. Arrays are created for missing index properties while objects
+ * are created for all other missing properties. Use `_.setWith` to customize
+ * `path` creation.
+ *
+ * **Note:** This method mutates `object`.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.7.0
+ * @category Object
+ * @param {Object} object The object to modify.
+ * @param {Array|string} path The path of the property to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns `object`.
+ * @example
+ *
+ * var object = { 'a': [{ 'b': { 'c': 3 } }] };
+ *
+ * _.set(object, 'a[0].b.c', 4);
+ * console.log(object.a[0].b.c);
+ * // => 4
+ *
+ * _.set(object, ['x', '0', 'y', 'z'], 5);
+ * console.log(object.x[0].y.z);
+ * // => 5
+ */
+function set(object, path, value) {
+  return object == null ? object : baseSet(object, path, value);
+}
+
+module.exports = set;
+
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(8)))
+
+/***/ }),
+/* 101 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = paginationMethodsPlugin
+
+function paginationMethodsPlugin (octokit) {
+  octokit.getFirstPage = __webpack_require__(102).bind(null, octokit)
+  octokit.getLastPage = __webpack_require__(107).bind(null, octokit)
+  octokit.getNextPage = __webpack_require__(108).bind(null, octokit)
+  octokit.getPreviousPage = __webpack_require__(109).bind(null, octokit)
+  octokit.hasFirstPage = __webpack_require__(110)
+  octokit.hasLastPage = __webpack_require__(111)
+  octokit.hasNextPage = __webpack_require__(112)
+  octokit.hasPreviousPage = __webpack_require__(113)
+}
+
+
+/***/ }),
+/* 102 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = getFirstPage
+
+const getPage = __webpack_require__(103)
+
+function getFirstPage (octokit, link, headers) {
+  return getPage(octokit, link, 'first', headers)
+}
+
+
+/***/ }),
+/* 103 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = getPage
+
+const deprecate = __webpack_require__(104)
+const getPageLinks = __webpack_require__(105)
+const HttpError = __webpack_require__(106)
+
+function getPage (octokit, link, which, headers) {
+  deprecate(`octokit.get${which.charAt(0).toUpperCase() + which.slice(1)}Page() – You can use octokit.paginate or async iterators instead: https://github.com/octokit/rest.js#pagination.`)
+  const url = getPageLinks(link)[which]
+
+  if (!url) {
+    const urlError = new HttpError(`No ${which} page found`, 404)
+    return Promise.reject(urlError)
+  }
+
+  const requestOptions = {
+    url,
+    headers: applyAcceptHeader(link, headers)
+  }
+
+  const promise = octokit.request(requestOptions)
+
+  return promise
+}
+
+function applyAcceptHeader (res, headers) {
+  const previous = res.headers && res.headers['x-github-media-type']
+
+  if (!previous || (headers && headers.accept)) {
+    return headers
+  }
+  headers = headers || {}
+  headers.accept = 'application/vnd.' + previous
+    .replace('; param=', '.')
+    .replace('; format=', '+')
+
+  return headers
+}
+
+
+/***/ }),
+/* 104 */
+/***/ (function(module, exports) {
+
+module.exports = deprecate
+
+const loggedMessages = {}
+
+function deprecate (message) {
+  if (loggedMessages[message]) {
+    return
+  }
+
+  console.warn(`DEPRECATED (@octokit/rest): ${message}`)
+  loggedMessages[message] = 1
+}
+
+
+/***/ }),
+/* 105 */
+/***/ (function(module, exports) {
+
+module.exports = getPageLinks
+
+function getPageLinks (link) {
+  link = link.link || link.headers.link || ''
+
+  const links = {}
+
+  // link format:
+  // '<https://api.github.com/users/aseemk/followers?page=2>; rel="next", <https://api.github.com/users/aseemk/followers?page=2>; rel="last"'
+  link.replace(/<([^>]*)>;\s*rel="([\w]*)"/g, (m, uri, type) => {
+    links[type] = uri
+  })
+
+  return links
+}
+
+
+/***/ }),
+/* 106 */
+/***/ (function(module, exports) {
+
+module.exports = class HttpError extends Error {
+  constructor (message, code, headers) {
+    super(message)
+
+    // Maintains proper stack trace (only available on V8)
+    /* istanbul ignore next */
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor)
+    }
+
+    this.name = 'HttpError'
+    this.code = code
+    this.headers = headers
+  }
+}
+
+
+/***/ }),
+/* 107 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = getLastPage
+
+const getPage = __webpack_require__(103)
+
+function getLastPage (octokit, link, headers) {
+  return getPage(octokit, link, 'last', headers)
+}
+
+
+/***/ }),
+/* 108 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = getNextPage
+
+const getPage = __webpack_require__(103)
+
+function getNextPage (octokit, link, headers) {
+  return getPage(octokit, link, 'next', headers)
+}
+
+
+/***/ }),
+/* 109 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = getPreviousPage
+
+const getPage = __webpack_require__(103)
+
+function getPreviousPage (octokit, link, headers) {
+  return getPage(octokit, link, 'prev', headers)
+}
+
+
+/***/ }),
+/* 110 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = hasFirstPage
+
+const deprecate = __webpack_require__(104)
+const getPageLinks = __webpack_require__(105)
+
+function hasFirstPage (link) {
+  deprecate(`octokit.hasFirstPage() – You can use octokit.paginate or async iterators instead: https://github.com/octokit/rest.js#pagination.`)
+  return getPageLinks(link).first
+}
+
+
+/***/ }),
+/* 111 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = hasLastPage
+
+const deprecate = __webpack_require__(104)
+const getPageLinks = __webpack_require__(105)
+
+function hasLastPage (link) {
+  deprecate(`octokit.hasLastPage() – You can use octokit.paginate or async iterators instead: https://github.com/octokit/rest.js#pagination.`)
+  return getPageLinks(link).last
+}
+
+
+/***/ }),
+/* 112 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = hasNextPage
+
+const deprecate = __webpack_require__(104)
+const getPageLinks = __webpack_require__(105)
+
+function hasNextPage (link) {
+  deprecate(`octokit.hasNextPage() – You can use octokit.paginate or async iterators instead: https://github.com/octokit/rest.js#pagination.`)
+  return getPageLinks(link).next
+}
+
+
+/***/ }),
+/* 113 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = hasPreviousPage
+
+const deprecate = __webpack_require__(104)
+const getPageLinks = __webpack_require__(105)
+
+function hasPreviousPage (link) {
+  deprecate(`octokit.hasPreviousPage() – You can use octokit.paginate or async iterators instead: https://github.com/octokit/rest.js#pagination.`)
+  return getPageLinks(link).prev
+}
 
 
 /***/ })
