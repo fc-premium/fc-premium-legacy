@@ -1,7 +1,7 @@
 const exec = require('child_process').exec;
 
 const OUTPUT_FILE = 'out/build.js';
-const HEADERS_FILE = 'fc-module-handler/tampermonkey.headers.ts';
+const HEADERS_FILE = 'src/tampermonkey.headers.ts';
 
 module.exports = {
 	watch: true,
@@ -10,6 +10,8 @@ module.exports = {
 		path: __dirname,
 		filename: OUTPUT_FILE
 	},
+
+	mode: 'none',
 
 	optimization: {
 		minimize: false
@@ -24,6 +26,14 @@ module.exports = {
 				});
 			});
 		}
-	}]
+	}],
 
+	module: {
+		rules: [{
+			test: /\.txt$/,
+			use: [{
+				loader: 'raw-loader',
+			}]
+		}]
+	}
 };
