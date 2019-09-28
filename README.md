@@ -1,18 +1,5 @@
-# FC_MODULES
+# FC-MODULE-HANDLER
 
-# El repositorio sigue en desarrollo
+Un script desarrollado para el plugin de navegador [tampermonkey](https://www.tampermonkey.net/) que permite instalar y gestionar de forma sencilla addons para [forocoches.com](https://forocoches.com)
 
-Una librería para scripts de forocoches.com
-
-[INSTALAR CON TAMPERMONKEY](https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js)
-
-### Modulos preinstalados
-
-- Icon Autocomplete
-- Filter Threads
-- Ignore users ++
-- Thumbnail Preview
-- GDrive Sync
-
-
-Una vez instalado, se puede acceder al menú de modulos presionando la tecla 'ESC'.
+[Instalar con tampermonkey](https://raw.githubusercontent.com/Pytness/fc-modules/master/index.user.js)
