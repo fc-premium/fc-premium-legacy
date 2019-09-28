@@ -7,15 +7,19 @@
 		"experimentalDecorators": true,
 		"emitDecoratorMetadata": false,
 		"removeComments": true,
+		"resolveJsonModule": true,
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"watch": true,
+		"incremental": false,
 
 		"typeRoots": [
-			"./types/",
 			"./node_modules/@types"
-		],
-		"watch": true
+			"./types/"
+		]	
 	},
 
 	"files": [
-		"./fc-module-handler/init.ts"
+		"./src/init.ts"
 	]
 }

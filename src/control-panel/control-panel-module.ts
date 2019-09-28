@@ -84,7 +84,6 @@ CONTROL_PANEL_MODULE.config.define('TOGGLE_COLOR', <MetaConfigType>{
 			});
 		}
 	}
-
 }).hook('MODULE_HANDLER', 'RESOURCES', 'RESOURCES', <MetaConfigType>{
 	title: 'User resources',
 	flags: ['CONFIGURABLE'],

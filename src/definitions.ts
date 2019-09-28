@@ -1,4 +1,4 @@
-import * as SHA from 'sha.js'
+import SHA from 'sha.js'
 
 window = unsafeWindow;
 

@@ -2,7 +2,6 @@ import { VERSION_HASH } from './definitions'
 import { ModuleHandler } from './module-handler'
 import { CONTROL_PANEL_MODULE } from './control-panel'
 
-
 function asciiBox(lines: string[], minBoxWidth: number = 0): string {
 	let result: string = '';
 
@@ -33,3 +32,21 @@ console.log(asciiBox([
 
 ModuleHandler.push(CONTROL_PANEL_MODULE);
 ModuleHandler.loadModules();
+
+import Octokit from "@octokit/rest";
+const octokit = new Octokit();
+
+type x = { [key: string]: any };
+
+octokit.search.repos({
+	q: 'topic:fc-modules'
+}).then(({ data }: x) => {
+	data.items.forEach(item => {
+		const [owner, repo] = item.full_name.split('/');
+
+		octokit.repos.listReleases({
+			owner,
+			repo
+		}).then(console.log);
+	})
+})
