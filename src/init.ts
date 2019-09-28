@@ -32,3 +32,21 @@ console.log(asciiBox([
 
 ModuleHandler.push(CONTROL_PANEL_MODULE);
 ModuleHandler.loadModules();
+// 
+// import Octokit from '@octokit/rest'
+//
+// const octokit = new Octokit({
+// 	auth: '41738453f108f86f1b4f9dae3d774e74e790ea08'
+// });
+//
+// function listFCModules() {
+// 	octokit.repos.listReleases({
+// 		owner: 'pytness',
+// 		repo: '__fc-modules'
+// 	}).then(console.log)
+// 		.catch(console.error)
+//
+// }
+//
+//
+// listFCModules()

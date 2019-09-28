@@ -1,7 +1,6 @@
 const exec = require('child_process').exec;
 
 const OUTPUT_FILE = 'out/build.js';
-const HEADERS_FILE = 'src/tampermonkey.headers.ts';
 
 module.exports = {
 	watch: true,
