@@ -1,5 +1,3 @@
-/// <reference path="../../node_modules/@types/jquery/index.d.ts" />
-
 import { Config } from './config'
 import { CSSHandler } from './css-handler'
 import { Debug } from './debug'

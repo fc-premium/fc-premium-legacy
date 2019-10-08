@@ -1,5 +1,3 @@
-/// <reference path="../../node_modules/@types/jquery/index.d.ts" />
-
 import { GLOBAL_ENTRY_NAME } from '../definitions'
 import { Module } from './module'
 
