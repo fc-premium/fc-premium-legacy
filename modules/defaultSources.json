@@ -1,8 +1,8 @@
 [
-	"rgh:Pytness/fc-modules/master/modules/src/filterThreads.js",
-	"rgh:Pytness/fc-modules/master/modules/src/iupp.js",
-	"rgh:Pytness/fc-modules/master/modules/src/drivesync.js",
-	"rgh:Pytness/fc-modules/master/modules/src/imagePreview.js",
-	"rgh:Pytness/fc-modules/master/modules/src/autoIcons.js",
-	"rgh:Pytness/fc-modules/master/modules/src/threadHighlighter.js"
+	"rgh:fc-premium/fc-premium/master/modules/src/filterThreads.js",
+	"rgh:fc-premium/fc-premium/master/modules/src/iupp.js",
+	"rgh:fc-premium/fc-premium/master/modules/src/drivesync.js",
+	"rgh:fc-premium/fc-premium/master/modules/src/imagePreview.js",
+	"rgh:fc-premium/fc-premium/master/modules/src/autoIcons.js",
+	"rgh:fc-premium/fc-premium/master/modules/src/threadHighlighter.js"
 ]
