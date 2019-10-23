@@ -18,7 +18,7 @@
 		runat: 'load'
 	});
 
-	const ICONS_JSON_URL = 'https://raw.githubusercontent.com/Pytness/fc-modules/master/resources/icons.json';
+	const ICONS_JSON_URL = 'https://raw.githubusercontent.com/fc-premium/fc-premium/master/resources/icons.json';
 	const SMILIES_URL = '//st.forocoches.com/foro/images/smilies/';
 
 	MODULE.config.define('MAX_ROWS', {
